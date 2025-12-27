@@ -1,0 +1,138 @@
+#!/bin/bash
+set -e
+
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+# Preserve original user's UID/GID and home when run with sudo
+if [[ -n "$SUDO_UID" ]]; then
+    HOST_UID="$SUDO_UID"
+    HOST_GID="$SUDO_GID"
+    HOST_HOME="$(getent passwd "$SUDO_UID" | cut -d: -f6)"
+else
+    HOST_UID="$(id -u)"
+    HOST_GID="$(id -g)"
+    HOST_HOME="$HOME"
+fi
+
+# Named volume for Claude credentials (persists across container restarts)
+CLAUDE_VOLUME="claude-sandbox-config"
+
+# Initialize volume with correct permissions if it's new
+if ! docker volume inspect "$CLAUDE_VOLUME" &>/dev/null; then
+    echo "Creating Claude config volume..."
+    docker volume create "$CLAUDE_VOLUME" >/dev/null
+fi
+
+# Ensure volume has correct ownership for the current user
+docker run --rm \
+    -v "${CLAUDE_VOLUME}:/claude-config" \
+    alpine:latest \
+    chown -R "${HOST_UID}:${HOST_GID}" /claude-config 2>/dev/null || true
+
+# Parse arguments
+SANDBOX_NAME="claude-sandbox"
+NETWORK_UNRESTRICTED="false"
+PROJECT_PATH=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --unrestricted)
+            NETWORK_UNRESTRICTED="true"
+            echo "Warning: Network unrestricted mode enabled"
+            shift
+            ;;
+        -n|--name)
+            if [[ -z "$2" || "$2" == -* ]]; then
+                echo "Error: --name requires a value"
+                exit 1
+            fi
+            SANDBOX_NAME="$2"
+            shift 2
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+        *)
+            if [[ -z "$PROJECT_PATH" ]]; then
+                PROJECT_PATH="$1"
+            else
+                echo "Error: Unexpected argument: $1"
+                exit 1
+            fi
+            shift
+            ;;
+    esac
+done
+
+# Require project path argument
+if [[ -z "$PROJECT_PATH" ]]; then
+    echo "Usage: claude-sandbox /path/to/project [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -n, --name NAME   Instance name (allows multiple sandboxes)"
+    echo "  --unrestricted    Disable network allowlist (for research)"
+    exit 1
+fi
+
+PROJECT_PATH="$(readlink -f "$PROJECT_PATH")"
+if [[ ! -d "$PROJECT_PATH" ]]; then
+    echo "Error: '$PROJECT_PATH' is not a directory"
+    exit 1
+fi
+
+# Load environment variables from .env file
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
+# Export variables for docker-compose
+export HOST_UID HOST_GID
+export PROJECT_PATH
+export NETWORK_UNRESTRICTED
+export SANDBOX_NAME
+export GIT_USER_NAME="${GIT_USER_NAME:-}"
+export GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
+
+# Use COMPOSE_PROJECT_NAME for network isolation between instances
+export COMPOSE_PROJECT_NAME="${SANDBOX_NAME}"
+
+# Function to set terminal title
+set_terminal_title() {
+    echo -ne "\033]0;CLAUDE SANDBOX - \"${SANDBOX_NAME}\" @ ${PROJECT_PATH}\007"
+}
+
+# Function to reset terminal title on exit
+reset_terminal_title() {
+    echo -ne "\033]0;\007"
+}
+trap reset_terminal_title EXIT
+
+cd "$SCRIPT_DIR"
+
+# Check if container is already running
+if [[ "$(docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null)" == "running" ]]; then
+    echo "Attaching to existing sandbox '${SANDBOX_NAME}'..."
+    set_terminal_title
+    docker attach "${SANDBOX_NAME}"
+    # Don't clean up - another terminal might have started this
+    exit 0
+fi
+
+# Start containers in detached mode
+docker compose up -d --build
+
+# Wait for the claude container to be running
+echo "Waiting for sandbox to start..."
+while [[ "$(docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null)" != "running" ]]; do
+    sleep 0.2
+done
+
+# Set terminal title and attach
+set_terminal_title
+docker attach "${SANDBOX_NAME}"
+
+# Clean up containers (only if we started them)
+docker compose down --remove-orphans 2>/dev/null || true

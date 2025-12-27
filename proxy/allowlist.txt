@@ -1,0 +1,23 @@
+# Allowed domains for Claude sandbox
+# Edit this file and run: ./claude-sandbox-reload
+
+# Claude API and services
+.anthropic.com
+.claude.ai
+
+# GitHub
+.github.com
+.githubusercontent.com
+
+# Python packages
+.pypi.org
+.pythonhosted.org
+
+# Node packages
+.npmjs.org
+.npmjs.com
+
+# Sentry (error reporting)
+.sentry.io
+
+# Custom domains

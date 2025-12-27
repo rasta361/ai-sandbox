@@ -1,0 +1,19 @@
+#!/bin/bash
+# Reload the proxy allowlist without restarting containers
+
+set -e
+
+# Find all running sandbox proxy containers (identified by compose service name)
+PROXY_CONTAINERS=$(docker ps --filter "label=com.docker.compose.service=proxy" --format '{{.Names}}' || true)
+
+if [[ -z "$PROXY_CONTAINERS" ]]; then
+    echo "Error: No sandbox proxy containers are running"
+    exit 1
+fi
+
+echo "Reloading proxy allowlist for all running instances..."
+for container in $PROXY_CONTAINERS; do
+    echo "  Sending SIGHUP to ${container}..."
+    docker kill --signal=SIGHUP "$container"
+done
+echo "Done. All proxy instances reloaded."

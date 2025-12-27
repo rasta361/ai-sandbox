@@ -1,0 +1,10 @@
+# Environment (contains user-specific config)
+.env
+
+# Editor
+.idea/
+.vscode/
+*.swp
+
+# Docker
+.docker/

@@ -1,0 +1,58 @@
+services:
+  proxy:
+    build: ./proxy
+    container_name: ${SANDBOX_NAME:-claude-sandbox}-proxy
+    environment:
+      - NETWORK_UNRESTRICTED=${NETWORK_UNRESTRICTED:-false}
+    volumes:
+      - "./proxy/allowlist.txt:/etc/squid/allowlist.txt:ro"
+    networks:
+      - external
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep squid > /dev/null"]
+      interval: 2s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: "no"
+
+  claude:
+    build: .
+    container_name: ${SANDBOX_NAME:-claude-sandbox}
+    hostname: ${SANDBOX_NAME:-claude-sandbox}-machine
+    user: "${HOST_UID}:${HOST_GID}"
+    stdin_open: true
+    tty: true
+    environment:
+      - HOME=/home/devuser
+      - CLAUDE_CONFIG_DIR=/home/devuser/.claude
+      - GIT_USER_NAME=${GIT_USER_NAME:-}
+      - GIT_USER_EMAIL=${GIT_USER_EMAIL:-}
+      - HTTP_PROXY=http://proxy:3128
+      - HTTPS_PROXY=http://proxy:3128
+      - http_proxy=http://proxy:3128
+      - https_proxy=http://proxy:3128
+      - NO_PROXY=localhost,127.0.0.1
+      - no_proxy=localhost,127.0.0.1
+    volumes:
+      - "${PROJECT_PATH}:/home/devuser/project"
+      - "claude-sandbox-config:/home/devuser/.claude"
+      - "./config/settings.json:/home/devuser/.claude/settings.json:ro"
+    networks:
+      - internal
+    depends_on:
+      proxy:
+        condition: service_healthy
+    restart: "no"
+
+networks:
+  external:
+    driver: bridge
+  internal:
+    driver: bridge
+    internal: true
+
+volumes:
+  claude-sandbox-config:
+    external: true
