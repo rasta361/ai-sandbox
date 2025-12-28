@@ -43,7 +43,11 @@ RUN chmod 755 /usr/bin/git /usr/bin/gh
 
 # Create home directory (UID/GID set at runtime via --user)
 # Make it world-writable so any UID can use it
-RUN mkdir -p /home/devuser/.claude /home/devuser/.config/gh \
+# Pre-create volume mount points to ensure correct permissions
+RUN mkdir -p /home/devuser/.claude \
+    /home/devuser/.config/gh \
+    /home/devuser/.npm-global \
+    /home/devuser/.venv_sandbox \
     && chmod -R 777 /home/devuser
 
 # Entrypoint

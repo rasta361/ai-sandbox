@@ -43,6 +43,7 @@ services:
       - "claude-sandbox-config:/home/devuser/.claude"
       - "./config/settings.json:/home/devuser/.claude/settings.json:ro"
       - "npm-global:/home/devuser/.npm-global"
+      - "python-venv:/home/devuser/.venv_sandbox"
     networks:
       - internal
     depends_on:
@@ -62,3 +63,5 @@ volumes:
     external: true
   npm-global:
     name: "${SANDBOX_NAME:-claude-sandbox}-npm-global"
+  python-venv:
+    name: "${SANDBOX_NAME:-claude-sandbox}-python-venv"

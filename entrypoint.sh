@@ -13,20 +13,22 @@ set -e
 
 # Configure per-project package persistence
 
-# Create sandbox-managed Python virtual environment at project root (if not exists)
-if [ ! -d "/home/devuser/project/.venv_claude_sandbox" ]; then
-    echo "Creating Claude sandbox virtual environment..."
-    /opt/system-python/bin/python3 -m venv /home/devuser/project/.venv_claude_sandbox
-    # Auto-gitignore
-    cat > /home/devuser/project/.venv_claude_sandbox/.gitignore <<'EOF'
-# Ignore virtual environment
-*
-!.gitignore
-EOF
-fi
-
-# Ensure npm global directory exists (will be in named volume)
+# Ensure npm directory exists
 mkdir -p /home/devuser/.npm-global
+
+# Create sandbox-managed Python virtual environment (if not exists)
+# This is stored in a named Docker volume, not the project directory
+if [ ! -f "/home/devuser/.venv_sandbox/bin/python3" ]; then
+    echo "Creating Claude sandbox virtual environment..." >&2
+    # Clean up any incomplete venv contents (don't remove mount point itself)
+    rm -rf /home/devuser/.venv_sandbox/* 2>/dev/null || true
+    # Create fresh venv (with timeout to prevent hanging)
+    timeout 30 /opt/system-python/bin/python3 -m venv /home/devuser/.venv_sandbox 2>&1 || {
+        echo "Warning: Failed to create venv (or timed out). Using system Python as fallback." >&2
+        rm -rf /home/devuser/.venv_sandbox/* 2>/dev/null || true
+    }
+    echo "Virtual environment setup complete." >&2
+fi
 
 # Execute the main command
 # If --dangerously-skip-permissions flag is set and we're running claude, add the flag
