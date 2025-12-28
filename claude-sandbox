@@ -32,6 +32,7 @@ docker run --rm \
 # Parse arguments
 SANDBOX_NAME="claude-sandbox"
 NETWORK_UNRESTRICTED="false"
+DANGEROUSLY_SKIP_PERMISSIONS="false"
 PROJECT_PATH=""
 
 while [[ $# -gt 0 ]]; do
@@ -39,6 +40,11 @@ while [[ $# -gt 0 ]]; do
         --unrestricted)
             NETWORK_UNRESTRICTED="true"
             echo "Warning: Network unrestricted mode enabled"
+            shift
+            ;;
+        --dangerously-skip-permissions)
+            DANGEROUSLY_SKIP_PERMISSIONS="true"
+            echo "Warning: Dangerously skipping permissions - Claude will have unrestricted access"
             shift
             ;;
         -n|--name)
@@ -70,8 +76,9 @@ if [[ -z "$PROJECT_PATH" ]]; then
     echo "Usage: claude-sandbox /path/to/project [OPTIONS]"
     echo ""
     echo "Options:"
-    echo "  -n, --name NAME   Instance name (allows multiple sandboxes)"
-    echo "  --unrestricted    Disable network allowlist (for research)"
+    echo "  -n, --name NAME                    Instance name (allows multiple sandboxes)"
+    echo "  --unrestricted                     Disable network allowlist (for research)"
+    echo "  --dangerously-skip-permissions     Skip Claude Code permission checks (DANGEROUS)"
     exit 1
 fi
 
@@ -92,6 +99,7 @@ fi
 export HOST_UID HOST_GID
 export PROJECT_PATH
 export NETWORK_UNRESTRICTED
+export DANGEROUSLY_SKIP_PERMISSIONS
 export SANDBOX_NAME
 export GIT_USER_NAME="${GIT_USER_NAME:-}"
 export GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"

@@ -8,3 +8,10 @@
 
 # Docker
 .docker/
+
+# Python virtual environments (managed by sandbox)
+.venv_claude_sandbox/
+.venv/
+venv/
+.virtualenv/
+env/

@@ -6,8 +6,21 @@ RUN apt-get update && apt-get install -y \
     curl \
     python3 \
     python3-pip \
+    python3-venv \
     iputils-ping \
     && rm -rf /var/lib/apt/lists/*
+
+# Move system Python binaries to safe location for wrapper scripts
+RUN mkdir -p /opt/system-python/bin \
+    && cp /usr/bin/python3 /opt/system-python/bin/python3 \
+    && cp /usr/bin/pip3 /opt/system-python/bin/pip3
+
+# Install Python/pip wrappers for auto-venv detection
+COPY wrappers/python-wrapper.sh /usr/local/bin/python3
+COPY wrappers/python-wrapper.sh /usr/local/bin/python
+COPY wrappers/pip-wrapper.sh /usr/local/bin/pip
+COPY wrappers/pip-wrapper.sh /usr/local/bin/pip3
+RUN chmod 755 /usr/local/bin/python3 /usr/local/bin/python /usr/local/bin/pip /usr/local/bin/pip3
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
