@@ -50,6 +50,7 @@ RUN chmod 755 /usr/bin/git /usr/bin/gh
 # Pre-create volume mount points to ensure correct permissions
 RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.config/gh \
+    /home/devuser/.config/opencode \
     /home/devuser/.npm-global \
     /home/devuser/.venv_sandbox \
     /home/devuser/.local/share/opencode \
@@ -59,6 +60,10 @@ RUN mkdir -p /home/devuser/.claude \
 # Copy Claude settings to a staging location (will be copied to volume at startup)
 COPY config/settings.json /opt/claude-settings.json
 RUN chmod 444 /opt/claude-settings.json
+
+# Copy OpenCode settings to a staging location (will be copied to volume at startup)
+COPY config/opencode.json /opt/opencode-settings.json
+RUN chmod 444 /opt/opencode-settings.json
 
 # Link OpenCode binary to user's home (will be in PATH)
 RUN ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode 2>/dev/null || \

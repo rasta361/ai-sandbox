@@ -5,8 +5,16 @@ set -e
 # Network filtering is handled by the squid proxy (external to this container)
 
 # Copy Claude settings into the mounted volume (read-only security config)
+# Remove existing file first (may be read-only from previous run)
+rm -f /home/devuser/.claude/settings.json 2>/dev/null || true
 cp /opt/claude-settings.json /home/devuser/.claude/settings.json
 chmod 444 /home/devuser/.claude/settings.json
+
+# Copy OpenCode settings into the mounted volume (read-only security config)
+# Remove existing file first (may be read-only from previous run)
+rm -f /home/devuser/.config/opencode/opencode.json 2>/dev/null || true
+cp /opt/opencode-settings.json /home/devuser/.config/opencode/opencode.json
+chmod 444 /home/devuser/.config/opencode/opencode.json
 
 # Configure git identity
 /opt/real-bin/git config --global user.name "${GIT_USER_NAME:-AI Assistant}"

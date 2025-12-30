@@ -1,0 +1,28 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": true,
+  "model": "anthropic/claude-opus-4-5",
+  "permission": {
+    "bash": {
+      "git push *": "deny",
+      "git remote add *": "deny",
+      "git remote set-url *": "deny",
+      "git remote remove *": "deny",
+      "git credential *": "deny",
+      "gh api *": "deny",
+      "gh pr merge *": "deny",
+      "gh pr close *": "deny",
+      "gh pr edit *": "deny",
+      "gh release *": "deny",
+      "gh repo *": "deny",
+      "gh auth logout *": "deny",
+      "gh config *": "deny",
+      "gh gist *": "deny",
+      "gh secret *": "deny",
+      "gh variable *": "deny",
+      "gh workflow *": "deny",
+      "gh codespace *": "deny",
+      "gh extension *": "deny"
+    }
+  }
+}
