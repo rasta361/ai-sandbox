@@ -8,7 +8,12 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-venv \
     iputils-ping \
+    ffmpeg \
+    pulseaudio-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# Install edge-tts for text-to-speech notifications
+RUN pip3 install --break-system-packages edge-tts
 
 # Move system Python binaries to safe location for wrapper scripts
 RUN mkdir -p /opt/system-python/bin \
@@ -64,6 +69,10 @@ RUN chmod 444 /opt/claude-settings.json
 # Copy OpenCode settings to a staging location (will be copied to volume at startup)
 COPY config/opencode.json /opt/opencode-settings.json
 RUN chmod 444 /opt/opencode-settings.json
+
+# Copy OpenCode plugin to staging location (will be copied to plugin dir at startup)
+COPY config/notification.js /opt/opencode-notification-plugin.js
+RUN chmod 444 /opt/opencode-notification-plugin.js
 
 # Link OpenCode binary to user's home (will be in PATH)
 RUN ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode 2>/dev/null || \

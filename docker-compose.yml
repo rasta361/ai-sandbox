@@ -21,6 +21,10 @@ services:
       - https_proxy=http://ai-sandbox-proxy:3128
       - NO_PROXY=localhost,127.0.0.1
       - no_proxy=localhost,127.0.0.1
+      - PULSE_SERVER=tcp:host.docker.internal:4713
+      - PULSE_HOST_IP=${PULSE_HOST_IP:-host.docker.internal}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - "${PROJECT_PATH}:/home/devuser/project"
       - "ai-sandbox-claude-config:/home/devuser/.claude"
@@ -30,11 +34,14 @@ services:
       - "python-venv:/home/devuser/.venv_sandbox"
     networks:
       - ai-sandbox-proxy-net
+      - host-access
     restart: "no"
 
 networks:
   ai-sandbox-proxy-net:
     external: true
+  host-access:
+    driver: bridge
 
 volumes:
   ai-sandbox-claude-config:

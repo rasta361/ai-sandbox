@@ -16,6 +16,12 @@ rm -f /home/devuser/.config/opencode/opencode.json 2>/dev/null || true
 cp /opt/opencode-settings.json /home/devuser/.config/opencode/opencode.json
 chmod 444 /home/devuser/.config/opencode/opencode.json
 
+# Copy OpenCode notification plugin to the plugin directory
+mkdir -p /home/devuser/.config/opencode/plugin
+rm -f /home/devuser/.config/opencode/plugin/notification.js 2>/dev/null || true
+cp /opt/opencode-notification-plugin.js /home/devuser/.config/opencode/plugin/notification.js
+chmod 444 /home/devuser/.config/opencode/plugin/notification.js
+
 # Configure git identity
 /opt/real-bin/git config --global user.name "${GIT_USER_NAME:-AI Assistant}"
 /opt/real-bin/git config --global user.email "${GIT_USER_EMAIL:-ai@sandbox.local}"
