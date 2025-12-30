@@ -64,6 +64,7 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.local/share/opencode \
     /home/devuser/.cache/opencode \
     /home/devuser/.opencode \
+    /home/devuser/.vibe-kanban \
     && chmod -R 777 /home/devuser
 
 # Copy Claude settings to a staging location (will be copied to volume at startup)

@@ -33,6 +33,7 @@ services:
       - "ai-sandbox-claude-config:/home/devuser/.claude"
       - "ai-sandbox-opencode-config:/home/devuser/.local/share/opencode"
       - "ai-sandbox-gh-config:/home/devuser/.config/gh"
+      - "ai-sandbox-vibe-kanban:/home/devuser/.vibe-kanban"
       - "npm-global:/home/devuser/.npm-global"
       - "python-venv:/home/devuser/.venv_sandbox"
       - "opencode-cache:/home/devuser/.cache/opencode"
@@ -53,6 +54,8 @@ volumes:
   ai-sandbox-opencode-config:
     external: true
   ai-sandbox-gh-config:
+    external: true
+  ai-sandbox-vibe-kanban:
     external: true
   npm-global:
     name: "${SANDBOX_NAME:-ai-sandbox}-npm-global"

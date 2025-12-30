@@ -18,6 +18,7 @@ fi
 CLAUDE_VOLUME="ai-sandbox-claude-config"
 OPENCODE_VOLUME="ai-sandbox-opencode-config"
 GH_VOLUME="ai-sandbox-gh-config"
+VIBE_KANBAN_VOLUME="ai-sandbox-vibe-kanban"
 
 # Shared proxy configuration
 PROXY_CONTAINER="ai-sandbox-proxy"
@@ -38,11 +39,10 @@ DANGEROUSLY_SKIP_PERMISSIONS="false"
 PROJECT_PATH=""
 AI_TOOL="claude"  # Default tool: claude or opencode
 DO_BUILD="false"  # Only build when explicitly requested
-# Start PulseAudio by default on macOS
+# macOS needs PulseAudio started manually; Linux has PipeWire-Pulse by default
+IS_MACOS="false"
 if [[ "$(uname)" == "Darwin" ]]; then
-    START_AUDIO="true"
-else
-    START_AUDIO="false"
+    IS_MACOS="true"
 fi
 
 while [[ $# -gt 0 ]]; do
@@ -77,14 +77,7 @@ while [[ $# -gt 0 ]]; do
             DO_BUILD="true"
             shift
             ;;
-        --audio)
-            START_AUDIO="true"
-            shift
-            ;;
-        --no-audio)
-            START_AUDIO="false"
-            shift
-            ;;
+
         -*)
             echo "Unknown option: $1"
             exit 1
@@ -111,8 +104,6 @@ if [[ -z "$PROJECT_PATH" ]]; then
     echo "  --claude                           Use Claude Code (default)"
     echo "  --opencode                         Use OpenCode"
     echo "  --build                            Rebuild the container image"
-    echo "  --audio                            Start PulseAudio server (default on macOS)"
-    echo "  --no-audio                         Skip PulseAudio server"
     echo "  --unrestricted                     Disable network allowlist (for research)"
     echo "  --dangerously-skip-permissions     Skip permission checks (DANGEROUS)"
     echo "  --stop-proxy                       Stop the shared proxy container"
@@ -161,8 +152,9 @@ trap reset_terminal_title EXIT
 
 cd "$SCRIPT_DIR"
 
-# === Start PulseAudio if requested ===
-if [[ "$START_AUDIO" == "true" ]]; then
+# === Start PulseAudio on macOS if not running ===
+# Linux has PipeWire-Pulse listening on TCP by default
+if [[ "$IS_MACOS" == "true" ]]; then
     if ! pgrep -x "pulseaudio" > /dev/null; then
         echo "Starting PulseAudio server..."
         pulseaudio --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1;172.16.0.0/12;192.168.0.0/16;10.0.0.0/8 auth-anonymous=1" --exit-idle-time=-1 --daemon
@@ -170,8 +162,6 @@ if [[ "$START_AUDIO" == "true" ]]; then
         pacmd set-default-sink 1
         pacmd set-sink-mute 1 0
         pacmd set-sink-volume 1 65536
-    else
-        echo "PulseAudio is already running."
     fi
 fi
 
@@ -193,11 +183,12 @@ CONTAINER_PID=$!
 NETWORK_PID=$!
 
 {
-    # Check all 3 volumes at once
+    # Check all 4 volumes at once
     MISSING=""
     docker volume inspect "$CLAUDE_VOLUME" &>/dev/null || MISSING="$MISSING $CLAUDE_VOLUME"
     docker volume inspect "$OPENCODE_VOLUME" &>/dev/null || MISSING="$MISSING $OPENCODE_VOLUME"
     docker volume inspect "$GH_VOLUME" &>/dev/null || MISSING="$MISSING $GH_VOLUME"
+    docker volume inspect "$VIBE_KANBAN_VOLUME" &>/dev/null || MISSING="$MISSING $VIBE_KANBAN_VOLUME"
     echo "$MISSING"
 } > /tmp/ai-sandbox-volumes-status.$$ &
 VOLUMES_PID=$!
@@ -230,8 +221,9 @@ if [[ -n "$MISSING_VOLUMES" ]]; then
         -v "${CLAUDE_VOLUME}:/claude-config" \
         -v "${OPENCODE_VOLUME}:/opencode-config" \
         -v "${GH_VOLUME}:/gh-config" \
+        -v "${VIBE_KANBAN_VOLUME}:/vibe-kanban" \
         alpine:latest \
-        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config" 2>/dev/null || true
+        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config /vibe-kanban" 2>/dev/null || true
 fi
 
 # === Ensure proxy network exists ===
