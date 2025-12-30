@@ -59,6 +59,7 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.npm-global \
     /home/devuser/.venv_sandbox \
     /home/devuser/.local/share/opencode \
+    /home/devuser/.cache/opencode \
     /home/devuser/.opencode \
     && chmod -R 777 /home/devuser
 
