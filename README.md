@@ -48,7 +48,12 @@ cp .env.example .env
 - `--claude` — Use Claude Code (default)
 - `--opencode` — Use OpenCode
 - `-n, --name NAME` — Instance name (for running multiple sandboxes)
-- `--unrestricted` — Disable network allowlist
+- `--build` — Rebuild the container image before starting
+- `--unrestricted` — Disable network allowlist (for research/testing)
+- `--audio` — Start PulseAudio server (default on macOS)
+- `--no-audio` — Skip PulseAudio server
+- `--dangerously-skip-permissions` — Skip permission checks (use with caution)
+- `--stop-proxy` — Stop the shared proxy container
 
 **Stop:** Exit the AI tool (`Ctrl+D` or `/exit`). Containers are cleaned up automatically.
 
@@ -73,6 +78,16 @@ Reload without restart:
 ```bash
 ./ai-sandbox-reload
 ```
+
+## Quick Alias
+
+Add to your `~/.zshrc` or `~/.bashrc` for a short command that starts the sandbox in the current directory:
+
+```bash
+alias oc='~/ai-sandbox/ai-sandbox . --opencode --build'
+```
+
+Then just run `oc` from any project directory.
 
 ## Rebuild
 
