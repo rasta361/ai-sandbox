@@ -17,9 +17,22 @@ fi
 # Named volumes for credentials (persist across container restarts)
 CLAUDE_VOLUME="ai-sandbox-claude-config"
 OPENCODE_VOLUME="ai-sandbox-opencode-config"
+GH_VOLUME="ai-sandbox-gh-config"
+
+# Shared proxy configuration
+PROXY_CONTAINER="ai-sandbox-proxy"
+PROXY_NETWORK="ai-sandbox-proxy-net"
+
+# Handle --stop-proxy command early
+if [[ "$1" == "--stop-proxy" ]]; then
+    echo "Stopping shared proxy..."
+    docker rm -f "$PROXY_CONTAINER" 2>/dev/null && echo "Proxy container stopped." || echo "Proxy container not running."
+    docker network rm "$PROXY_NETWORK" 2>/dev/null && echo "Proxy network removed." || echo "Proxy network not found or in use."
+    exit 0
+fi
 
 # Initialize volumes with correct permissions if they're new
-for volume in "$CLAUDE_VOLUME" "$OPENCODE_VOLUME"; do
+for volume in "$CLAUDE_VOLUME" "$OPENCODE_VOLUME" "$GH_VOLUME"; do
     if ! docker volume inspect "$volume" &>/dev/null; then
         echo "Creating config volume: $volume..."
         docker volume create "$volume" >/dev/null
@@ -30,8 +43,9 @@ done
 docker run --rm \
     -v "${CLAUDE_VOLUME}:/claude-config" \
     -v "${OPENCODE_VOLUME}:/opencode-config" \
+    -v "${GH_VOLUME}:/gh-config" \
     alpine:latest \
-    sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config" 2>/dev/null || true
+    sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config" 2>/dev/null || true
 
 # Parse arguments
 SANDBOX_NAME="ai-sandbox"
@@ -87,6 +101,7 @@ done
 # Require project path argument
 if [[ -z "$PROJECT_PATH" ]]; then
     echo "Usage: ai-sandbox /path/to/project [OPTIONS]"
+    echo "       ai-sandbox --stop-proxy"
     echo ""
     echo "Options:"
     echo "  -n, --name NAME                    Instance name (allows multiple sandboxes)"
@@ -94,6 +109,7 @@ if [[ -z "$PROJECT_PATH" ]]; then
     echo "  --opencode                         Use OpenCode"
     echo "  --unrestricted                     Disable network allowlist (for research)"
     echo "  --dangerously-skip-permissions     Skip permission checks (DANGEROUS)"
+    echo "  --stop-proxy                       Stop the shared proxy container"
     exit 1
 fi
 
@@ -137,6 +153,52 @@ trap reset_terminal_title EXIT
 
 cd "$SCRIPT_DIR"
 
+# Ensure shared proxy network exists (internal - sandboxes can only reach proxy)
+if ! docker network inspect "$PROXY_NETWORK" &>/dev/null; then
+    echo "Creating shared proxy network..."
+    docker network create --internal "$PROXY_NETWORK" >/dev/null
+fi
+
+# Ensure shared proxy is running
+if [[ "$(docker inspect -f '{{.State.Status}}' "$PROXY_CONTAINER" 2>/dev/null)" != "running" ]]; then
+    echo "Starting shared proxy..."
+    
+    # Remove stale container if exists
+    docker rm -f "$PROXY_CONTAINER" 2>/dev/null || true
+    
+    # Build proxy image only if it doesn't exist
+    # Proxy starts on default bridge network (for internet access)
+    if ! docker image inspect ai-sandbox-proxy-image &>/dev/null; then
+        echo "Building proxy image..."
+        docker build -q -t ai-sandbox-proxy-image "$SCRIPT_DIR/proxy" >/dev/null
+    fi
+    docker run -d \
+        --name "$PROXY_CONTAINER" \
+        -e "NETWORK_UNRESTRICTED=false" \
+        -v "$SCRIPT_DIR/proxy/allowlist.txt:/etc/squid/allowlist.txt:ro" \
+        --restart unless-stopped \
+        ai-sandbox-proxy-image >/dev/null
+    
+    # Connect proxy to the internal sandbox network (so sandboxes can reach it)
+    docker network connect "$PROXY_NETWORK" "$PROXY_CONTAINER"
+    
+    # Wait for proxy to be ready
+    echo "Waiting for proxy to be ready..."
+    for i in {1..30}; do
+        if docker exec "$PROXY_CONTAINER" pgrep squid >/dev/null 2>&1; then
+            break
+        fi
+        sleep 0.2
+    done
+else
+    echo "Reusing existing proxy..."
+fi
+
+# Warn if unrestricted mode requested with shared proxy
+if [[ "$NETWORK_UNRESTRICTED" == "true" ]]; then
+    echo "Warning: --unrestricted ignored with shared proxy. Stop proxy first: docker rm -f $PROXY_CONTAINER"
+fi
+
 # Check if container is already running
 if [[ "$(docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null)" == "running" ]]; then
     echo "Attaching to existing sandbox '${SANDBOX_NAME}'..."
@@ -146,7 +208,7 @@ if [[ "$(docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null)" =
     exit 0
 fi
 
-# Start containers in detached mode
+# Start sandbox container
 docker compose up -d --build
 
 # Wait for the sandbox container to be running
@@ -159,5 +221,5 @@ done
 set_terminal_title
 docker attach "${SANDBOX_NAME}"
 
-# Clean up containers (only if we started them)
-docker compose down --remove-orphans 2>/dev/null || true
+# Clean up sandbox container only (keep shared proxy running)
+docker compose down 2>/dev/null || true

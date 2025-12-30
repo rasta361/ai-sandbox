@@ -1,22 +1,4 @@
 services:
-  proxy:
-    build: ./proxy
-    container_name: ${SANDBOX_NAME:-ai-sandbox}-proxy
-    environment:
-      - NETWORK_UNRESTRICTED=${NETWORK_UNRESTRICTED:-false}
-    volumes:
-      - "./proxy/allowlist.txt:/etc/squid/allowlist.txt:ro"
-    networks:
-      - external
-      - internal
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep squid > /dev/null"]
-      interval: 2s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: "no"
-
   sandbox:
     build: .
     container_name: ${SANDBOX_NAME:-ai-sandbox}
@@ -33,36 +15,33 @@ services:
       - AI_TOOL=${AI_TOOL:-claude}
       - NPM_CONFIG_PREFIX=/home/devuser/.npm-global
       - PATH=/home/devuser/.opencode/bin:/home/devuser/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      - HTTP_PROXY=http://proxy:3128
-      - HTTPS_PROXY=http://proxy:3128
-      - http_proxy=http://proxy:3128
-      - https_proxy=http://proxy:3128
+      - HTTP_PROXY=http://ai-sandbox-proxy:3128
+      - HTTPS_PROXY=http://ai-sandbox-proxy:3128
+      - http_proxy=http://ai-sandbox-proxy:3128
+      - https_proxy=http://ai-sandbox-proxy:3128
       - NO_PROXY=localhost,127.0.0.1
       - no_proxy=localhost,127.0.0.1
     volumes:
       - "${PROJECT_PATH}:/home/devuser/project"
       - "ai-sandbox-claude-config:/home/devuser/.claude"
       - "ai-sandbox-opencode-config:/home/devuser/.local/share/opencode"
+      - "ai-sandbox-gh-config:/home/devuser/.config/gh"
       - "npm-global:/home/devuser/.npm-global"
       - "python-venv:/home/devuser/.venv_sandbox"
     networks:
-      - internal
-    depends_on:
-      proxy:
-        condition: service_healthy
+      - ai-sandbox-proxy-net
     restart: "no"
 
 networks:
-  external:
-    driver: bridge
-  internal:
-    driver: bridge
-    internal: true
+  ai-sandbox-proxy-net:
+    external: true
 
 volumes:
   ai-sandbox-claude-config:
     external: true
   ai-sandbox-opencode-config:
+    external: true
+  ai-sandbox-gh-config:
     external: true
   npm-global:
     name: "${SANDBOX_NAME:-ai-sandbox}-npm-global"
