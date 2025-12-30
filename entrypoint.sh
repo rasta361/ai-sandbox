@@ -4,6 +4,10 @@ set -e
 # AI Sandbox entrypoint - supports Claude Code and OpenCode
 # Network filtering is handled by the squid proxy (external to this container)
 
+# Copy Claude settings into the mounted volume (read-only security config)
+cp /opt/claude-settings.json /home/devuser/.claude/settings.json
+chmod 444 /home/devuser/.claude/settings.json
+
 # Configure git identity
 /opt/real-bin/git config --global user.name "${GIT_USER_NAME:-AI Assistant}"
 /opt/real-bin/git config --global user.email "${GIT_USER_EMAIL:-ai@sandbox.local}"

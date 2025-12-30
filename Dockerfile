@@ -56,6 +56,10 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.opencode \
     && chmod -R 777 /home/devuser
 
+# Copy Claude settings to a staging location (will be copied to volume at startup)
+COPY config/settings.json /opt/claude-settings.json
+RUN chmod 444 /opt/claude-settings.json
+
 # Link OpenCode binary to user's home (will be in PATH)
 RUN ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode 2>/dev/null || \
     (mkdir -p /home/devuser/.opencode/bin && ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode)
