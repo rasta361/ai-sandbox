@@ -83,6 +83,6 @@ RUN ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode 2>/dev
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod 755 /entrypoint.sh
 
-WORKDIR /home/devuser/project
+WORKDIR /home/devuser
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["claude"]

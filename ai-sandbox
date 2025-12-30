@@ -124,6 +124,7 @@ if [[ ! -d "$PROJECT_PATH" ]]; then
     echo "Error: '$PROJECT_PATH' is not a directory"
     exit 1
 fi
+PROJECT_NAME="$(basename "$PROJECT_PATH")"
 
 # Load environment variables from .env file
 if [[ -f "$SCRIPT_DIR/.env" ]]; then
@@ -135,6 +136,7 @@ fi
 # Export variables for docker-compose
 export HOST_UID HOST_GID
 export PROJECT_PATH
+export PROJECT_NAME
 export NETWORK_UNRESTRICTED
 export DANGEROUSLY_SKIP_PERMISSIONS
 export SANDBOX_NAME

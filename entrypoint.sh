@@ -4,6 +4,10 @@ set -e
 # AI Sandbox entrypoint - supports Claude Code and OpenCode
 # Network filtering is handled by the squid proxy (external to this container)
 
+# Change to project directory immediately (before any tool runs)
+PROJECT_NAME="${PROJECT_NAME:-project}"
+cd "/home/devuser/${PROJECT_NAME}"
+
 # Copy Claude settings into the mounted volume (read-only security config)
 # Remove existing file first (may be read-only from previous run)
 rm -f /home/devuser/.claude/settings.json 2>/dev/null || true
@@ -27,7 +31,7 @@ chmod 444 /home/devuser/.config/opencode/plugin/notification.js
 /opt/real-bin/git config --global user.email "${GIT_USER_EMAIL:-ai@sandbox.local}"
 
 # Mark project directory as safe (prevents dubious ownership errors)
-/opt/real-bin/git config --global --add safe.directory /home/devuser/project
+/opt/real-bin/git config --global --add safe.directory "/home/devuser/${PROJECT_NAME}"
 
 # Configure per-project package persistence
 
