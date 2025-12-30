@@ -27,17 +27,17 @@ export const NotificationPlugin = async ({ project, client, $, directory, worktr
         }
         
         // Ring bell and update terminal title
-        bell()
         setTitle(title ? `✓ ${title}` : "✓ OpenCode - Done")
         
         await $`edge-tts -t ${text} --write-media - | ffmpeg -loglevel quiet -i - -f s16le -ar 24000 -ac 1 - | paplay --raw --rate 24000 --channels 1`
+        bell()
       }
       
       // Notify when permission is needed (waiting for input)
       if (event.type === "permission.updated") {
-        bell()
         setTitle("⚠ OpenCode - Input needed")
         await $`edge-tts -t 'Input needed' --write-media - | ffmpeg -loglevel quiet -i - -f s16le -ar 24000 -ac 1 - | paplay --raw --rate 24000 --channels 1`
+        bell()
       }
     },
   }
