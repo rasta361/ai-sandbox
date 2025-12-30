@@ -62,6 +62,7 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.npm-global \
     /home/devuser/.venv_sandbox \
     /home/devuser/.local/share/opencode \
+    /home/devuser/.local/share/vibe-kanban \
     /home/devuser/.cache/opencode \
     /home/devuser/.opencode \
     /home/devuser/.vibe-kanban \
