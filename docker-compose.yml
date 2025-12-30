@@ -26,6 +26,8 @@ services:
       - PULSE_HOST_IP=${PULSE_HOST_IP:-host.docker.internal}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    ports:
+      - "${SANDBOX_PORT_START:-8000}-${SANDBOX_PORT_END:-8010}:${SANDBOX_PORT_START:-8000}-${SANDBOX_PORT_END:-8010}"
     volumes:
       - "${PROJECT_PATH}:/home/devuser/${PROJECT_NAME:-project}"
       - "ai-sandbox-claude-config:/home/devuser/.claude"
