@@ -38,6 +38,9 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 # Install Claude Code (latest on each build)
 RUN npm install -g @anthropic-ai/claude-code
 
+# Install vibe-kanban for task visualization
+RUN npm install -g vibe-kanban
+
 # Install OpenCode AI
 RUN curl -fsSL https://opencode.ai/install | bash \
     && mv /root/.opencode /opt/opencode
