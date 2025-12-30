@@ -33,6 +33,10 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 # Install Claude Code (latest on each build)
 RUN npm install -g @anthropic-ai/claude-code
 
+# Install OpenCode AI
+RUN curl -fsSL https://opencode.ai/install | bash \
+    && mv /root/.opencode /opt/opencode
+
 # Store original binaries in /opt, install wrappers
 RUN mkdir -p /opt/real-bin \
     && mv /usr/bin/git /opt/real-bin/git \
@@ -48,7 +52,13 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.config/gh \
     /home/devuser/.npm-global \
     /home/devuser/.venv_sandbox \
+    /home/devuser/.local/share/opencode \
+    /home/devuser/.opencode \
     && chmod -R 777 /home/devuser
+
+# Link OpenCode binary to user's home (will be in PATH)
+RUN ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode 2>/dev/null || \
+    (mkdir -p /home/devuser/.opencode/bin && ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode)
 
 # Entrypoint
 COPY entrypoint.sh /entrypoint.sh

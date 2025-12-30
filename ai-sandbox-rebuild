@@ -2,10 +2,10 @@
 set -e
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-IMAGE_NAME="claude-sandbox"
+IMAGE_NAME="ai-sandbox"
 
 echo "Building $IMAGE_NAME..."
 docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" "$@"
 
 echo ""
-echo "Done. Run ./claude-sandbox /path/to/project to start."
+echo "Done. Run ./ai-sandbox /path/to/project to start."

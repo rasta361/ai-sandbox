@@ -14,26 +14,31 @@ else
     HOST_HOME="$HOME"
 fi
 
-# Named volume for Claude credentials (persists across container restarts)
-CLAUDE_VOLUME="claude-sandbox-config"
+# Named volumes for credentials (persist across container restarts)
+CLAUDE_VOLUME="ai-sandbox-claude-config"
+OPENCODE_VOLUME="ai-sandbox-opencode-config"
 
-# Initialize volume with correct permissions if it's new
-if ! docker volume inspect "$CLAUDE_VOLUME" &>/dev/null; then
-    echo "Creating Claude config volume..."
-    docker volume create "$CLAUDE_VOLUME" >/dev/null
-fi
+# Initialize volumes with correct permissions if they're new
+for volume in "$CLAUDE_VOLUME" "$OPENCODE_VOLUME"; do
+    if ! docker volume inspect "$volume" &>/dev/null; then
+        echo "Creating config volume: $volume..."
+        docker volume create "$volume" >/dev/null
+    fi
+done
 
-# Ensure volume has correct ownership for the current user
+# Ensure volumes have correct ownership for the current user
 docker run --rm \
     -v "${CLAUDE_VOLUME}:/claude-config" \
+    -v "${OPENCODE_VOLUME}:/opencode-config" \
     alpine:latest \
-    chown -R "${HOST_UID}:${HOST_GID}" /claude-config 2>/dev/null || true
+    sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config" 2>/dev/null || true
 
 # Parse arguments
-SANDBOX_NAME="claude-sandbox"
+SANDBOX_NAME="ai-sandbox"
 NETWORK_UNRESTRICTED="false"
 DANGEROUSLY_SKIP_PERMISSIONS="false"
 PROJECT_PATH=""
+AI_TOOL="claude"  # Default tool: claude or opencode
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -44,7 +49,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dangerously-skip-permissions)
             DANGEROUSLY_SKIP_PERMISSIONS="true"
-            echo "Warning: Dangerously skipping permissions - Claude will have unrestricted access"
+            echo "Warning: Dangerously skipping permissions - AI tool will have unrestricted access"
             shift
             ;;
         -n|--name)
@@ -54,6 +59,14 @@ while [[ $# -gt 0 ]]; do
             fi
             SANDBOX_NAME="$2"
             shift 2
+            ;;
+        --opencode)
+            AI_TOOL="opencode"
+            shift
+            ;;
+        --claude)
+            AI_TOOL="claude"
+            shift
             ;;
         -*)
             echo "Unknown option: $1"
@@ -73,12 +86,14 @@ done
 
 # Require project path argument
 if [[ -z "$PROJECT_PATH" ]]; then
-    echo "Usage: claude-sandbox /path/to/project [OPTIONS]"
+    echo "Usage: ai-sandbox /path/to/project [OPTIONS]"
     echo ""
     echo "Options:"
     echo "  -n, --name NAME                    Instance name (allows multiple sandboxes)"
+    echo "  --claude                           Use Claude Code (default)"
+    echo "  --opencode                         Use OpenCode"
     echo "  --unrestricted                     Disable network allowlist (for research)"
-    echo "  --dangerously-skip-permissions     Skip Claude Code permission checks (DANGEROUS)"
+    echo "  --dangerously-skip-permissions     Skip permission checks (DANGEROUS)"
     exit 1
 fi
 
@@ -101,6 +116,7 @@ export PROJECT_PATH
 export NETWORK_UNRESTRICTED
 export DANGEROUSLY_SKIP_PERMISSIONS
 export SANDBOX_NAME
+export AI_TOOL
 export GIT_USER_NAME="${GIT_USER_NAME:-}"
 export GIT_USER_EMAIL="${GIT_USER_EMAIL:-}"
 
@@ -109,7 +125,8 @@ export COMPOSE_PROJECT_NAME="${SANDBOX_NAME}"
 
 # Function to set terminal title
 set_terminal_title() {
-    echo -ne "\033]0;CLAUDE SANDBOX - \"${SANDBOX_NAME}\" @ ${PROJECT_PATH}\007"
+    local tool_upper=$(echo "$AI_TOOL" | tr '[:lower:]' '[:upper:]')
+    echo -ne "\033]0;AI SANDBOX (${tool_upper}) - \"${SANDBOX_NAME}\" @ ${PROJECT_PATH}\007"
 }
 
 # Function to reset terminal title on exit
@@ -132,7 +149,7 @@ fi
 # Start containers in detached mode
 docker compose up -d --build
 
-# Wait for the claude container to be running
+# Wait for the sandbox container to be running
 echo "Waiting for sandbox to start..."
 while [[ "$(docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null)" != "running" ]]; do
     sleep 0.2

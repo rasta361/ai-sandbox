@@ -1,9 +1,12 @@
-# Allowed domains for Claude sandbox
-# Edit this file and run: ./claude-sandbox-reload
+# Allowed domains for AI sandbox
+# Edit this file and run: ./ai-sandbox-reload
 
 # Claude API and services
 .anthropic.com
 .claude.ai
+
+# OpenCode API and services
+.opencode.ai
 
 # GitHub
 .github.com

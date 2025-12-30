@@ -1,7 +1,7 @@
 services:
   proxy:
     build: ./proxy
-    container_name: ${SANDBOX_NAME:-claude-sandbox}-proxy
+    container_name: ${SANDBOX_NAME:-ai-sandbox}-proxy
     environment:
       - NETWORK_UNRESTRICTED=${NETWORK_UNRESTRICTED:-false}
     volumes:
@@ -17,10 +17,10 @@ services:
       start_period: 10s
     restart: "no"
 
-  claude:
+  sandbox:
     build: .
-    container_name: ${SANDBOX_NAME:-claude-sandbox}
-    hostname: ${SANDBOX_NAME:-claude-sandbox}-machine
+    container_name: ${SANDBOX_NAME:-ai-sandbox}
+    hostname: ${SANDBOX_NAME:-ai-sandbox}-machine
     user: "${HOST_UID}:${HOST_GID}"
     stdin_open: true
     tty: true
@@ -30,8 +30,9 @@ services:
       - GIT_USER_NAME=${GIT_USER_NAME:-}
       - GIT_USER_EMAIL=${GIT_USER_EMAIL:-}
       - DANGEROUSLY_SKIP_PERMISSIONS=${DANGEROUSLY_SKIP_PERMISSIONS:-false}
+      - AI_TOOL=${AI_TOOL:-claude}
       - NPM_CONFIG_PREFIX=/home/devuser/.npm-global
-      - PATH=/home/devuser/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/home/devuser/.opencode/bin:/home/devuser/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - HTTP_PROXY=http://proxy:3128
       - HTTPS_PROXY=http://proxy:3128
       - http_proxy=http://proxy:3128
@@ -40,8 +41,9 @@ services:
       - no_proxy=localhost,127.0.0.1
     volumes:
       - "${PROJECT_PATH}:/home/devuser/project"
-      - "claude-sandbox-config:/home/devuser/.claude"
+      - "ai-sandbox-claude-config:/home/devuser/.claude"
       - "./config/settings.json:/home/devuser/.claude/settings.json:ro"
+      - "ai-sandbox-opencode-config:/home/devuser/.local/share/opencode"
       - "npm-global:/home/devuser/.npm-global"
       - "python-venv:/home/devuser/.venv_sandbox"
     networks:
@@ -59,9 +61,11 @@ networks:
     internal: true
 
 volumes:
-  claude-sandbox-config:
+  ai-sandbox-claude-config:
+    external: true
+  ai-sandbox-opencode-config:
     external: true
   npm-global:
-    name: "${SANDBOX_NAME:-claude-sandbox}-npm-global"
+    name: "${SANDBOX_NAME:-ai-sandbox}-npm-global"
   python-venv:
-    name: "${SANDBOX_NAME:-claude-sandbox}-python-venv"
+    name: "${SANDBOX_NAME:-ai-sandbox}-python-venv"
