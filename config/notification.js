@@ -11,7 +11,7 @@ export const NotificationPlugin = async ({ project, client, $, directory, worktr
     event: async ({ event }) => {
       // Notify on session completion with session title
       if (event.type === "session.idle") {
-        let text = "AI done"
+        let text = "done"
         let title = null
         try {
           const sessionId = event.properties?.sessionID
@@ -19,7 +19,7 @@ export const NotificationPlugin = async ({ project, client, $, directory, worktr
             const session = await client.session.get({ path: { id: sessionId } })
             if (session.data?.title) {
               title = session.data.title
-              text = `Done: ${title}`
+              text = `${title}, done`
             }
           }
         } catch (e) {
