@@ -31,28 +31,19 @@ if [[ "$1" == "--stop-proxy" ]]; then
     exit 0
 fi
 
-# Initialize volumes with correct permissions if they're new
-for volume in "$CLAUDE_VOLUME" "$OPENCODE_VOLUME" "$GH_VOLUME"; do
-    if ! docker volume inspect "$volume" &>/dev/null; then
-        echo "Creating config volume: $volume..."
-        docker volume create "$volume" >/dev/null
-    fi
-done
-
-# Ensure volumes have correct ownership for the current user
-docker run --rm \
-    -v "${CLAUDE_VOLUME}:/claude-config" \
-    -v "${OPENCODE_VOLUME}:/opencode-config" \
-    -v "${GH_VOLUME}:/gh-config" \
-    alpine:latest \
-    sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config" 2>/dev/null || true
-
-# Parse arguments
+# Parse arguments first (no docker calls needed)
 SANDBOX_NAME="ai-sandbox"
 NETWORK_UNRESTRICTED="false"
 DANGEROUSLY_SKIP_PERMISSIONS="false"
 PROJECT_PATH=""
 AI_TOOL="claude"  # Default tool: claude or opencode
+DO_BUILD="false"  # Only build when explicitly requested
+# Start PulseAudio by default on macOS
+if [[ "$(uname)" == "Darwin" ]]; then
+    START_AUDIO="true"
+else
+    START_AUDIO="false"
+fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -82,6 +73,18 @@ while [[ $# -gt 0 ]]; do
             AI_TOOL="claude"
             shift
             ;;
+        --build)
+            DO_BUILD="true"
+            shift
+            ;;
+        --audio)
+            START_AUDIO="true"
+            shift
+            ;;
+        --no-audio)
+            START_AUDIO="false"
+            shift
+            ;;
         -*)
             echo "Unknown option: $1"
             exit 1
@@ -107,6 +110,9 @@ if [[ -z "$PROJECT_PATH" ]]; then
     echo "  -n, --name NAME                    Instance name (allows multiple sandboxes)"
     echo "  --claude                           Use Claude Code (default)"
     echo "  --opencode                         Use OpenCode"
+    echo "  --build                            Rebuild the container image"
+    echo "  --audio                            Start PulseAudio server (default on macOS)"
+    echo "  --no-audio                         Skip PulseAudio server"
     echo "  --unrestricted                     Disable network allowlist (for research)"
     echo "  --dangerously-skip-permissions     Skip permission checks (DANGEROUS)"
     echo "  --stop-proxy                       Stop the shared proxy container"
@@ -153,21 +159,93 @@ trap reset_terminal_title EXIT
 
 cd "$SCRIPT_DIR"
 
-# Ensure shared proxy network exists (internal - sandboxes can only reach proxy)
-if ! docker network inspect "$PROXY_NETWORK" &>/dev/null; then
+# === Start PulseAudio if requested ===
+if [[ "$START_AUDIO" == "true" ]]; then
+    if ! pgrep -x "pulseaudio" > /dev/null; then
+        echo "Starting PulseAudio server..."
+        pulseaudio --load="module-native-protocol-tcp auth-ip-acl=127.0.0.1;172.16.0.0/12;192.168.0.0/16;10.0.0.0/8 auth-anonymous=1" --exit-idle-time=-1 --daemon
+        sleep 2
+        pacmd set-default-sink 1
+        pacmd set-sink-mute 1 0
+        pacmd set-sink-volume 1 65536
+    else
+        echo "PulseAudio is already running."
+    fi
+fi
+
+# === FAST PATH: Gather all docker state in parallel ===
+# Run multiple docker inspect commands in parallel to minimize latency
+{
+    docker inspect -f '{{.State.Status}}' "$PROXY_CONTAINER" 2>/dev/null || echo "not-running"
+} > /tmp/ai-sandbox-proxy-status.$$ &
+PROXY_PID=$!
+
+{
+    docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null || echo "not-running"
+} > /tmp/ai-sandbox-container-status.$$ &
+CONTAINER_PID=$!
+
+{
+    docker network inspect "$PROXY_NETWORK" &>/dev/null && echo "exists" || echo "missing"
+} > /tmp/ai-sandbox-network-status.$$ &
+NETWORK_PID=$!
+
+{
+    # Check all 3 volumes at once
+    MISSING=""
+    docker volume inspect "$CLAUDE_VOLUME" &>/dev/null || MISSING="$MISSING $CLAUDE_VOLUME"
+    docker volume inspect "$OPENCODE_VOLUME" &>/dev/null || MISSING="$MISSING $OPENCODE_VOLUME"
+    docker volume inspect "$GH_VOLUME" &>/dev/null || MISSING="$MISSING $GH_VOLUME"
+    echo "$MISSING"
+} > /tmp/ai-sandbox-volumes-status.$$ &
+VOLUMES_PID=$!
+
+# Wait for all checks to complete
+wait $PROXY_PID $CONTAINER_PID $NETWORK_PID $VOLUMES_PID
+
+PROXY_STATUS=$(cat /tmp/ai-sandbox-proxy-status.$$)
+CONTAINER_STATUS=$(cat /tmp/ai-sandbox-container-status.$$)
+NETWORK_STATUS=$(cat /tmp/ai-sandbox-network-status.$$)
+MISSING_VOLUMES=$(cat /tmp/ai-sandbox-volumes-status.$$)
+rm -f /tmp/ai-sandbox-proxy-status.$$ /tmp/ai-sandbox-container-status.$$ /tmp/ai-sandbox-network-status.$$ /tmp/ai-sandbox-volumes-status.$$
+
+# === Handle existing running container (fastest path) ===
+if [[ "$CONTAINER_STATUS" == "running" ]]; then
+    echo "Attaching to existing sandbox '${SANDBOX_NAME}'..."
+    set_terminal_title
+    docker attach "${SANDBOX_NAME}"
+    exit 0
+fi
+
+# === Initialize missing volumes ===
+if [[ -n "$MISSING_VOLUMES" ]]; then
+    for volume in $MISSING_VOLUMES; do
+        echo "Creating config volume: $volume..."
+        docker volume create "$volume" >/dev/null
+    done
+    echo "Initializing volume permissions..."
+    docker run --rm \
+        -v "${CLAUDE_VOLUME}:/claude-config" \
+        -v "${OPENCODE_VOLUME}:/opencode-config" \
+        -v "${GH_VOLUME}:/gh-config" \
+        alpine:latest \
+        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config" 2>/dev/null || true
+fi
+
+# === Ensure proxy network exists ===
+if [[ "$NETWORK_STATUS" == "missing" ]]; then
     echo "Creating shared proxy network..."
     docker network create --internal "$PROXY_NETWORK" >/dev/null
 fi
 
-# Ensure shared proxy is running
-if [[ "$(docker inspect -f '{{.State.Status}}' "$PROXY_CONTAINER" 2>/dev/null)" != "running" ]]; then
+# === Ensure proxy is running ===
+if [[ "$PROXY_STATUS" != "running" ]]; then
     echo "Starting shared proxy..."
     
     # Remove stale container if exists
     docker rm -f "$PROXY_CONTAINER" 2>/dev/null || true
     
     # Build proxy image only if it doesn't exist
-    # Proxy starts on default bridge network (for internet access)
     if ! docker image inspect ai-sandbox-proxy-image &>/dev/null; then
         echo "Building proxy image..."
         docker build -q -t ai-sandbox-proxy-image "$SCRIPT_DIR/proxy" >/dev/null
@@ -179,7 +257,7 @@ if [[ "$(docker inspect -f '{{.State.Status}}' "$PROXY_CONTAINER" 2>/dev/null)" 
         --restart unless-stopped \
         ai-sandbox-proxy-image >/dev/null
     
-    # Connect proxy to the internal sandbox network (so sandboxes can reach it)
+    # Connect proxy to the internal sandbox network
     docker network connect "$PROXY_NETWORK" "$PROXY_CONTAINER"
     
     # Wait for proxy to be ready
@@ -199,23 +277,18 @@ if [[ "$NETWORK_UNRESTRICTED" == "true" ]]; then
     echo "Warning: --unrestricted ignored with shared proxy. Stop proxy first: docker rm -f $PROXY_CONTAINER"
 fi
 
-# Check if container is already running
-if [[ "$(docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null)" == "running" ]]; then
-    echo "Attaching to existing sandbox '${SANDBOX_NAME}'..."
-    set_terminal_title
-    docker attach "${SANDBOX_NAME}"
-    # Don't clean up - another terminal might have started this
-    exit 0
+# === Start sandbox container ===
+SANDBOX_IMAGE="${COMPOSE_PROJECT_NAME}-sandbox"
+if [[ "$DO_BUILD" == "true" ]]; then
+    docker compose up -d --build --wait
+else
+    if ! docker image inspect "$SANDBOX_IMAGE" &>/dev/null; then
+        echo "Image not found, building..."
+        docker compose up -d --build --wait
+    else
+        docker compose up -d --wait
+    fi
 fi
-
-# Start sandbox container
-docker compose up -d --build
-
-# Wait for the sandbox container to be running
-echo "Waiting for sandbox to start..."
-while [[ "$(docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null)" != "running" ]]; do
-    sleep 0.2
-done
 
 # Set terminal title and attach
 set_terminal_title
