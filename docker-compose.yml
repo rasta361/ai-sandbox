@@ -32,6 +32,7 @@ services:
       - "ai-sandbox-gh-config:/home/devuser/.config/gh"
       - "npm-global:/home/devuser/.npm-global"
       - "python-venv:/home/devuser/.venv_sandbox"
+      - "opencode-cache:/home/devuser/.cache/opencode"
     networks:
       - ai-sandbox-proxy-net
       - host-access
@@ -54,3 +55,5 @@ volumes:
     name: "${SANDBOX_NAME:-ai-sandbox}-npm-global"
   python-venv:
     name: "${SANDBOX_NAME:-ai-sandbox}-python-venv"
+  opencode-cache:
+    name: "${SANDBOX_NAME:-ai-sandbox}-opencode-cache"
