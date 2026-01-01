@@ -57,8 +57,8 @@ fi
 
 # Start vibe-kanban in background if enabled
 if [[ "${VIBE_KANBAN:-true}" == "true" ]]; then
-    echo "Starting vibe-kanban on ${VIBE_KANBAN_HOST:-0.0.0.0}:${VIBE_KANBAN_PORT:-8010}..." >&2
-    HOST="${VIBE_KANBAN_HOST:-0.0.0.0}" PORT="${VIBE_KANBAN_PORT:-8010}" vibe-kanban >/dev/null 2>&1 &
+    echo "Starting vibe-kanban on ${VIBE_KANBAN_HOST:-0.0.0.0}:${VIBE_KANBAN_PORT:-8100}..." >&2
+    HOST="${VIBE_KANBAN_HOST:-0.0.0.0}" PORT="${VIBE_KANBAN_PORT:-8100}" vibe-kanban >/dev/null 2>&1 &
 fi
 
 # Determine which AI tool to run
