@@ -27,7 +27,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "${SANDBOX_PORT_START:-8100}-${SANDBOX_PORT_END:-8110}:${SANDBOX_PORT_START:-8100}-${SANDBOX_PORT_END:-8110}"
+      - "${SANDBOX_PORT_START:-18000}-${SANDBOX_PORT_END:-18010}:${SANDBOX_PORT_START:-18000}-${SANDBOX_PORT_END:-18010}"
     volumes:
       - "${PROJECT_PATH}:/home/devuser/${PROJECT_NAME:-project}"
       - "ai-sandbox-claude-config:/home/devuser/.claude"
