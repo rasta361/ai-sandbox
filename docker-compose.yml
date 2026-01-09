@@ -28,6 +28,7 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "${SANDBOX_PORT_START:-18000}-${SANDBOX_PORT_END:-18010}:${SANDBOX_PORT_START:-18000}-${SANDBOX_PORT_END:-18010}"
+      - "8085:8085"  # OAuth callback port (Gemini CLI, etc.)
     volumes:
       - "${PROJECT_PATH}:/home/devuser/${PROJECT_NAME:-project}"
       - "ai-sandbox-claude-config:/home/devuser/.claude"

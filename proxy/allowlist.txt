@@ -8,6 +8,10 @@
 # OpenCode API and services
 .opencode.ai
 
+# Google OAuth and Gemini API (for opencode-gemini-auth)
+.google.com
+.googleapis.com
+
 # GitHub
 .github.com
 .githubusercontent.com
