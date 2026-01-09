@@ -38,9 +38,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 # Install Claude Code (latest on each build)
 RUN npm install -g @anthropic-ai/claude-code
 
-# Install vibe-kanban for task visualization
-RUN npm install -g vibe-kanban
-
 # Install OpenCode AI
 RUN curl -fsSL https://opencode.ai/install | bash \
     && mv /root/.opencode /opt/opencode
@@ -62,10 +59,8 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.npm-global \
     /home/devuser/.venv_sandbox \
     /home/devuser/.local/share/opencode \
-    /home/devuser/.local/share/vibe-kanban \
     /home/devuser/.cache/opencode \
     /home/devuser/.opencode \
-    /home/devuser/.vibe-kanban \
     && chmod -R 777 /home/devuser
 
 # Copy Claude settings to a staging location (will be copied to volume at startup)

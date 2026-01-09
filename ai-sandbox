@@ -18,8 +18,6 @@ fi
 CLAUDE_VOLUME="ai-sandbox-claude-config"
 OPENCODE_VOLUME="ai-sandbox-opencode-config"
 GH_VOLUME="ai-sandbox-gh-config"
-VIBE_KANBAN_VOLUME="ai-sandbox-vibe-kanban"
-VIBE_KANBAN_DATA_VOLUME="ai-sandbox-vibe-kanban-data"
 
 # Shared proxy configuration
 PROXY_CONTAINER="ai-sandbox-proxy"
@@ -184,13 +182,11 @@ CONTAINER_PID=$!
 NETWORK_PID=$!
 
 {
-    # Check all 4 volumes at once
+    # Check all 3 volumes at once
     MISSING=""
     docker volume inspect "$CLAUDE_VOLUME" &>/dev/null || MISSING="$MISSING $CLAUDE_VOLUME"
     docker volume inspect "$OPENCODE_VOLUME" &>/dev/null || MISSING="$MISSING $OPENCODE_VOLUME"
     docker volume inspect "$GH_VOLUME" &>/dev/null || MISSING="$MISSING $GH_VOLUME"
-    docker volume inspect "$VIBE_KANBAN_VOLUME" &>/dev/null || MISSING="$MISSING $VIBE_KANBAN_VOLUME"
-    docker volume inspect "$VIBE_KANBAN_DATA_VOLUME" &>/dev/null || MISSING="$MISSING $VIBE_KANBAN_DATA_VOLUME"
     echo "$MISSING"
 } > /tmp/ai-sandbox-volumes-status.$$ &
 VOLUMES_PID=$!
@@ -228,10 +224,8 @@ if [[ -n "$MISSING_VOLUMES" ]]; then
         -v "${CLAUDE_VOLUME}:/claude-config" \
         -v "${OPENCODE_VOLUME}:/opencode-config" \
         -v "${GH_VOLUME}:/gh-config" \
-        -v "${VIBE_KANBAN_VOLUME}:/vibe-kanban" \
-        -v "${VIBE_KANBAN_DATA_VOLUME}:/vibe-kanban-data" \
         alpine:latest \
-        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config /vibe-kanban /vibe-kanban-data" 2>/dev/null || true
+        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config" 2>/dev/null || true
 fi
 
 # === Ensure proxy network exists ===
