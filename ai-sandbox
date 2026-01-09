@@ -204,12 +204,17 @@ NETWORK_STATUS=$(cat /tmp/ai-sandbox-network-status.$$)
 MISSING_VOLUMES=$(cat /tmp/ai-sandbox-volumes-status.$$)
 rm -f /tmp/ai-sandbox-proxy-status.$$ /tmp/ai-sandbox-container-status.$$ /tmp/ai-sandbox-network-status.$$ /tmp/ai-sandbox-volumes-status.$$
 
-# === Handle existing running container (fastest path) ===
+# === Handle existing running container - find unique name ===
 if [[ "$CONTAINER_STATUS" == "running" ]]; then
-    echo "Attaching to existing sandbox '${SANDBOX_NAME}'..."
-    set_terminal_title
-    docker attach "${SANDBOX_NAME}"
-    exit 0
+    BASE_NAME="$SANDBOX_NAME"
+    COUNTER=2
+    while docker inspect -f '{{.State.Status}}' "${BASE_NAME}-${COUNTER}" 2>/dev/null | grep -q "running"; do
+        ((COUNTER++))
+    done
+    SANDBOX_NAME="${BASE_NAME}-${COUNTER}"
+    export SANDBOX_NAME
+    export COMPOSE_PROJECT_NAME="${SANDBOX_NAME}"
+    echo "Sandbox '${BASE_NAME}' is already running, starting '${SANDBOX_NAME}' instead..."
 fi
 
 # === Initialize missing volumes ===
