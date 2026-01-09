@@ -2,10 +2,18 @@
 set -e
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-IMAGE_NAME="ai-sandbox"
+cd "$SCRIPT_DIR"
 
-echo "Building $IMAGE_NAME..."
-docker build -t "$IMAGE_NAME" "$SCRIPT_DIR" "$@"
+# Use same project name as ai-sandbox script for consistency
+export COMPOSE_PROJECT_NAME="ai-sandbox"
+
+# Set dummy values for compose validation (only building, not running)
+export HOST_UID="$(id -u)"
+export HOST_GID="$(id -g)"
+export PROJECT_PATH="$SCRIPT_DIR"
+
+echo "Building ai-sandbox image..."
+docker compose build "$@"
 
 echo ""
 echo "Done. Run ./ai-sandbox /path/to/project to start."

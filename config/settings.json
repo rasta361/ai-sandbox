@@ -2,8 +2,13 @@
   "hooks": {
     "Stop": [
       {
-        "type": "command",
-        "command": "edge-tts -t 'AI done' --write-media - | ffmpeg -loglevel quiet -i - -f s16le -ar 24000 -ac 1 - | paplay --raw --rate 24000 --channels 1"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "edge-tts -t 'AI done' --write-media - | ffmpeg -loglevel quiet -i - -f s16le -ar 24000 -ac 1 - | paplay --raw --rate 24000 --channels 1"
+          }
+        ]
       }
     ]
   },
