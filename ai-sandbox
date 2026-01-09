@@ -203,11 +203,32 @@ rm -f /tmp/ai-sandbox-proxy-status.$$ /tmp/ai-sandbox-container-status.$$ /tmp/a
 # === Handle existing running container - find unique name ===
 if [[ "$CONTAINER_STATUS" == "running" ]]; then
     BASE_NAME="$SANDBOX_NAME"
-    COUNTER=2
-    while docker inspect -f '{{.State.Status}}' "${BASE_NAME}-${COUNTER}" 2>/dev/null | grep -q "running"; do
-        ((COUNTER++))
+    # Word list for random name generation (50 words)
+    WORDS=(
+        alpha bravo charlie delta echo foxtrot golf hotel india juliet
+        kilo lima mike november oscar papa quebec romeo sierra tango
+        uniform victor whiskey xray yankee zulu
+        amber azure coral crimson emerald golden indigo jade marble onyx
+        pearl ruby sapphire silver violet copper bronze ivory cedar maple
+        birch aspen willow oak
+    )
+    # Generate unique name with random word, fallback to numbers after too many attempts
+    ATTEMPTS=0
+    MAX_ATTEMPTS=50
+    while true; do
+        if [[ $ATTEMPTS -lt $MAX_ATTEMPTS ]]; then
+            RANDOM_WORD="${WORDS[$RANDOM % ${#WORDS[@]}]}"
+            SANDBOX_NAME="${BASE_NAME}-${RANDOM_WORD}"
+        else
+            # Fallback to numbers if all words are taken
+            SANDBOX_NAME="${BASE_NAME}-$((ATTEMPTS - MAX_ATTEMPTS + 2))"
+        fi
+        # Check if this name is already in use
+        if ! docker inspect -f '{{.State.Status}}' "${SANDBOX_NAME}" 2>/dev/null | grep -q "running"; then
+            break
+        fi
+        ((ATTEMPTS++))
     done
-    SANDBOX_NAME="${BASE_NAME}-${COUNTER}"
     export SANDBOX_NAME
     export COMPOSE_PROJECT_NAME="${SANDBOX_NAME}"
     echo "Sandbox '${BASE_NAME}' is already running, starting '${SANDBOX_NAME}' instead..."
