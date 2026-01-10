@@ -5,8 +5,14 @@ set -e
 # Network filtering is handled by the squid proxy (external to this container)
 
 # Change to project directory immediately (before any tool runs)
+# WORKTREE_SUBDIR allows working in a git worktree subdirectory
 PROJECT_NAME="${PROJECT_NAME:-project}"
-cd "/home/devuser/${PROJECT_NAME}"
+WORKTREE_SUBDIR="${WORKTREE_SUBDIR:-}"
+if [ -n "$WORKTREE_SUBDIR" ]; then
+    cd "/home/devuser/${PROJECT_NAME}/${WORKTREE_SUBDIR}"
+else
+    cd "/home/devuser/${PROJECT_NAME}"
+fi
 
 # Copy Claude settings into the mounted volume (read-only security config)
 # Remove existing file first (may be read-only from previous run)
@@ -32,6 +38,9 @@ chmod 444 /home/devuser/.config/opencode/plugin/notification.js
 
 # Mark project directory as safe (prevents dubious ownership errors)
 /opt/real-bin/git config --global --add safe.directory "/home/devuser/${PROJECT_NAME}"
+if [ -n "$WORKTREE_SUBDIR" ]; then
+    /opt/real-bin/git config --global --add safe.directory "/home/devuser/${PROJECT_NAME}/${WORKTREE_SUBDIR}"
+fi
 
 # Configure per-project package persistence
 

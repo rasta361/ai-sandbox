@@ -14,6 +14,7 @@ services:
       - DANGEROUSLY_SKIP_PERMISSIONS=${DANGEROUSLY_SKIP_PERMISSIONS:-false}
       - AI_TOOL=${AI_TOOL:-claude}
       - PROJECT_NAME=${PROJECT_NAME:-project}
+      - WORKTREE_SUBDIR=${WORKTREE_SUBDIR:-}
       - NPM_CONFIG_PREFIX=/home/devuser/.npm-global
       - PATH=/home/devuser/.opencode/bin:/home/devuser/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - HTTP_PROXY=http://ai-sandbox-proxy:3128
