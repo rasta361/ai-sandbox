@@ -4,6 +4,7 @@
 # Claude API and services
 .anthropic.com
 .claude.ai
+.claude.com
 
 # OpenCode API and services
 .opencode.ai
