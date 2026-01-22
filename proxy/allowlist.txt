@@ -8,6 +8,7 @@
 
 # OpenCode API and services
 .opencode.ai
+.models.dev
 
 # Google OAuth and Gemini API (for opencode-gemini-auth)
 .google.com
