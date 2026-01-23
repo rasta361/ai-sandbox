@@ -35,6 +35,10 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Bun (required by OpenCode for plugin management)
+RUN curl -fsSL https://bun.sh/install | bash \
+    && ln -s /root/.bun/bin/bun /usr/local/bin/bun
+
 # Install Claude Code (latest on each build)
 RUN npm install -g @anthropic-ai/claude-code
 
