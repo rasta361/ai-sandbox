@@ -26,6 +26,10 @@
 .npmjs.org
 .npmjs.com
 
+# Bun package manager
+.bun.sh
+.bun.com
+
 # Sentry (error reporting)
 .sentry.io
 
