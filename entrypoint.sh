@@ -50,6 +50,12 @@ mkdir -p /home/devuser/.npm-global
 # Ensure OpenCode cache directory exists and is writable
 mkdir -p /home/devuser/.cache/opencode
 
+# Configure Bun to use user-writable directories for runtime operations
+# The Bun binary is in /opt/bun, but cache/installs go to user home
+export BUN_INSTALL_CACHE_DIR=/home/devuser/.cache/bun
+export BUN_INSTALL_GLOBAL_DIR=/home/devuser/.bun/install/global
+mkdir -p /home/devuser/.cache/bun /home/devuser/.bun/install/global
+
 # Create sandbox-managed Python virtual environment (if not exists)
 # This is stored in a named Docker volume, not the project directory
 if [ ! -f "/home/devuser/.venv_sandbox/bin/python3" ]; then

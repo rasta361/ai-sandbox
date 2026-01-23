@@ -25,6 +25,7 @@
 # Node packages
 .npmjs.org
 .npmjs.com
+registry.npmjs.org
 
 # Bun package manager
 .bun.sh

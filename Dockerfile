@@ -4,6 +4,7 @@ FROM node:22-slim
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    unzip \
     python3 \
     python3-pip \
     python3-venv \
@@ -36,8 +37,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Bun (required by OpenCode for plugin management)
+# Install to /opt/bun so it's accessible to all users, runtime cache configured via env vars
+ENV BUN_INSTALL=/opt/bun
 RUN curl -fsSL https://bun.sh/install | bash \
-    && ln -s /root/.bun/bin/bun /usr/local/bin/bun
+    && ln -s /opt/bun/bin/bun /usr/local/bin/bun \
+    && chmod -R 755 /opt/bun
 
 # Install Claude Code (latest on each build)
 RUN npm install -g @anthropic-ai/claude-code
@@ -64,6 +68,9 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.venv_sandbox \
     /home/devuser/.local/share/opencode \
     /home/devuser/.cache/opencode \
+    /home/devuser/.cache/bun \
+    /home/devuser/.bun/install/cache \
+    /home/devuser/.bun/install/global \
     /home/devuser/.opencode \
     && chmod -R 777 /home/devuser
 

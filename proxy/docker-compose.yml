@@ -14,4 +14,4 @@ services:
 networks:
   ai-sandbox-proxy-net:
     name: ai-sandbox-proxy-net
-    internal: true
+    # internal: true - removed: proxy needs internet access to forward requests
