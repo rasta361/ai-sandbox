@@ -26,8 +26,7 @@ PROXY_NETWORK="ai-sandbox-proxy-net"
 # Handle --stop-proxy command early
 if [[ "$1" == "--stop-proxy" ]]; then
     echo "Stopping shared proxy..."
-    docker rm -f "$PROXY_CONTAINER" 2>/dev/null && echo "Proxy container stopped." || echo "Proxy container not running."
-    docker network rm "$PROXY_NETWORK" 2>/dev/null && echo "Proxy network removed." || echo "Proxy network not found or in use."
+    docker compose -f "$SCRIPT_DIR/proxy/docker-compose.yml" down 2>/dev/null && echo "Proxy stopped." || echo "Proxy not running."
     exit 0
 fi
 
@@ -176,10 +175,6 @@ PROXY_PID=$!
 } > /tmp/ai-sandbox-container-status.$$ &
 CONTAINER_PID=$!
 
-{
-    docker network inspect "$PROXY_NETWORK" &>/dev/null && echo "exists" || echo "missing"
-} > /tmp/ai-sandbox-network-status.$$ &
-NETWORK_PID=$!
 
 {
     # Check all 3 volumes at once
@@ -192,13 +187,12 @@ NETWORK_PID=$!
 VOLUMES_PID=$!
 
 # Wait for all checks to complete
-wait $PROXY_PID $CONTAINER_PID $NETWORK_PID $VOLUMES_PID
+wait $PROXY_PID $CONTAINER_PID $VOLUMES_PID
 
 PROXY_STATUS=$(cat /tmp/ai-sandbox-proxy-status.$$)
 CONTAINER_STATUS=$(cat /tmp/ai-sandbox-container-status.$$)
-NETWORK_STATUS=$(cat /tmp/ai-sandbox-network-status.$$)
 MISSING_VOLUMES=$(cat /tmp/ai-sandbox-volumes-status.$$)
-rm -f /tmp/ai-sandbox-proxy-status.$$ /tmp/ai-sandbox-container-status.$$ /tmp/ai-sandbox-network-status.$$ /tmp/ai-sandbox-volumes-status.$$
+rm -f /tmp/ai-sandbox-proxy-status.$$ /tmp/ai-sandbox-container-status.$$ /tmp/ai-sandbox-volumes-status.$$
 
 # === Handle existing running container - find unique name ===
 if [[ "$CONTAINER_STATUS" == "running" ]]; then
@@ -249,34 +243,11 @@ if [[ -n "$MISSING_VOLUMES" ]]; then
         sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config" 2>/dev/null || true
 fi
 
-# === Ensure proxy network exists ===
-if [[ "$NETWORK_STATUS" == "missing" ]]; then
-    echo "Creating shared proxy network..."
-    docker network create --internal "$PROXY_NETWORK" >/dev/null
-fi
-
 # === Ensure proxy is running ===
 if [[ "$PROXY_STATUS" != "running" ]]; then
     echo "Starting shared proxy..."
-    
-    # Remove stale container if exists
-    docker rm -f "$PROXY_CONTAINER" 2>/dev/null || true
-    
-    # Build proxy image only if it doesn't exist
-    if ! docker image inspect ai-sandbox-proxy-image &>/dev/null; then
-        echo "Building proxy image..."
-        docker build -q -t ai-sandbox-proxy-image "$SCRIPT_DIR/proxy" >/dev/null
-    fi
-    docker run -d \
-        --name "$PROXY_CONTAINER" \
-        -e "NETWORK_UNRESTRICTED=false" \
-        -v "$SCRIPT_DIR/proxy/allowlist.txt:/etc/squid/allowlist.txt:ro" \
-        --restart unless-stopped \
-        ai-sandbox-proxy-image >/dev/null
-    
-    # Connect proxy to the internal sandbox network
-    docker network connect "$PROXY_NETWORK" "$PROXY_CONTAINER"
-    
+    docker compose -f "$SCRIPT_DIR/proxy/docker-compose.yml" up -d --build
+
     # Wait for proxy to be ready
     echo "Waiting for proxy to be ready..."
     for i in {1..30}; do

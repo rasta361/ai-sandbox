@@ -1,0 +1,17 @@
+services:
+  proxy:
+    build: .
+    image: ai-sandbox-proxy-image
+    container_name: ai-sandbox-proxy
+    environment:
+      - NETWORK_UNRESTRICTED=false
+    volumes:
+      - ./allowlist.txt:/etc/squid/allowlist.txt:ro
+    networks:
+      - ai-sandbox-proxy-net
+    restart: unless-stopped
+
+networks:
+  ai-sandbox-proxy-net:
+    name: ai-sandbox-proxy-net
+    internal: true
