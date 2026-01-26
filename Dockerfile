@@ -11,6 +11,9 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     ffmpeg \
     pulseaudio-utils \
+    xclip \
+    xsel \
+    wl-clipboard \
     && rm -rf /var/lib/apt/lists/*
 
 # Install edge-tts for text-to-speech notifications
@@ -86,9 +89,10 @@ RUN chmod 444 /opt/opencode-settings.json
 COPY config/notification.js /opt/opencode-notification-plugin.js
 RUN chmod 444 /opt/opencode-notification-plugin.js
 
-# Link OpenCode binary to user's home (will be in PATH)
-RUN ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode 2>/dev/null || \
-    (mkdir -p /home/devuser/.opencode/bin && ln -s /opt/opencode/bin/opencode /home/devuser/.opencode/bin/opencode)
+# Install OpenCode wrapper to force 0.0.0.0 binding
+RUN mkdir -p /home/devuser/.opencode/bin
+COPY wrappers/opencode-wrapper.sh /home/devuser/.opencode/bin/opencode
+RUN chmod 755 /home/devuser/.opencode/bin/opencode
 
 # Entrypoint
 COPY entrypoint.sh /entrypoint.sh

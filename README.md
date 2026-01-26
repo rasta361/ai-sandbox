@@ -68,6 +68,20 @@ opencode auth login
 ```
 Credentials persist in Docker volumes across runs.
 
+## Clipboard Support
+
+Clipboard sharing (copy/paste) between the sandbox and your host is supported for OpenCode.
+
+**Linux Users:**
+You must authorize the Docker container to connect to your X11 display. Run this command on your host:
+```bash
+xhost +local:docker
+```
+(You may need to run this after each reboot).
+
+**WSL Users:**
+Clipboard support works automatically via WSLg (GUI support), which is included in modern WSL 2 installations. Ensure your WSL is up to date (`wsl --update`).
+
 ## Network Allowlist
 
 Edit `proxy/allowlist.txt` — one domain per line (supports wildcards like `.github.com`).

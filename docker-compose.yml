@@ -25,10 +25,12 @@ services:
       - no_proxy=localhost,127.0.0.1
       - PULSE_SERVER=tcp:host.docker.internal:4713
       - PULSE_HOST_IP=${PULSE_HOST_IP:-host.docker.internal}
+      - DISPLAY=${DISPLAY}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
       - "${PROJECT_PATH}:/home/devuser/${PROJECT_NAME:-project}"
+      - "/tmp/.X11-unix:/tmp/.X11-unix:ro"
       - "ai-sandbox-claude-config:/home/devuser/.claude"
       - "ai-sandbox-opencode-config:/home/devuser/.local/share/opencode"
       - "ai-sandbox-gh-config:/home/devuser/.config/gh"
@@ -38,6 +40,8 @@ services:
     networks:
       - ai-sandbox-proxy-net
       - host-access
+    ports:
+      - "8085:8085"
     restart: "no"
 
 networks:
