@@ -21,14 +21,15 @@ Run **OpenCode** (default) or **Claude Code** in a secure, sandboxed Docker envi
     Credentials persist across restarts.
     *   **GitHub:** Run `gh auth login` inside the sandbox.
     *   **OpenCode / Gemini:**
-        1.  The tool will prompt you to login.
-        2.  **Important:** When the authentication link appears, copy the **full URL** (ending in `...&callback_url=...`).
-        3.  Open a **new terminal** on your host machine.
-        4.  Run the helper script with the URL:
+        1.  The tool will prompt you to login and show a URL.
+        2.  Open that URL in your host browser and follow the workflow.
+        3.  **Final Step:** The browser will eventually show a "connection refused" error on `localhost:8085`. This is expected.
+        4.  **Copy the URL** of that error page (the one starting with `http://localhost:8085/...`).
+        5.  Open a **new terminal** on your host and run:
             ```bash
-            ./ai-sandbox-auth "https://..."
+            ./ai-sandbox-auth "http://localhost:8085/..."
             ```
-        5.  Follow the browser flow. The script will handle the callback and log you in.
+        6.  The script will complete the login for you.
 
 ## 🛠️ Usage
 
@@ -38,12 +39,6 @@ Run **OpenCode** (default) or **Claude Code** in a secure, sandboxed Docker envi
 
 # Start with Claude Code
 ./ai-sandbox /path/to/project --claude
-
-# Start with Google Gemini CLI (via OpenCode)
-./ai-sandbox /path/to/project --gemini
-
-# Run multiple instances
-./ai-sandbox /path/to/project -n my-session-1
 ```
 
 **Common Options:**
@@ -57,7 +52,7 @@ Run **OpenCode** (default) or **Claude Code** in a secure, sandboxed Docker envi
 
 Traffic is restricted to domains in `proxy/allowlist.txt`.
 *   **Defaults:** GitHub, Anthropic, OpenCode, PyPI, NPM.
-*   **Add Domains:** Edit `proxy/allowlist.txt` and run `./ai-sandbox-reload`.
+*   **Add Domains:** Edit `proxy/allowlist.txt` and run `./ai-sandbox-reload` (while the sandbox/proxy is running).
 
 ## 📎 Clipboard Support
 
@@ -69,5 +64,5 @@ Traffic is restricted to domains in `proxy/allowlist.txt`.
 Add this to your shell config (`~/.bashrc` or `~/.zshrc`) to run `oc` from any directory:
 
 ```bash
-alias oc='/path/to/ai-sandbox/ai-sandbox . --build'
+alias oc='/path/to/ai-sandbox/ai-sandbox . --opencode'
 ```
