@@ -21,8 +21,8 @@ services:
       - HTTPS_PROXY=http://ai-sandbox-proxy:3128
       - http_proxy=http://ai-sandbox-proxy:3128
       - https_proxy=http://ai-sandbox-proxy:3128
-      - NO_PROXY=localhost,127.0.0.1
-      - no_proxy=localhost,127.0.0.1
+      - NO_PROXY=localhost,127.0.0.1,0.0.0.0
+      - no_proxy=localhost,127.0.0.1,0.0.0.0
       - PULSE_SERVER=tcp:host.docker.internal:4713
       - PULSE_HOST_IP=${PULSE_HOST_IP:-host.docker.internal}
       - DISPLAY=${DISPLAY}
@@ -40,8 +40,6 @@ services:
     networks:
       - ai-sandbox-proxy-net
       - host-access
-    ports:
-      - "8085:8085"
     restart: "no"
 
 networks:

@@ -1,0 +1,73 @@
+#!/bin/bash
+set -e
+
+# Helper script to complete OpenCode/Gemini authentication
+# Usage: ai-sandbox-auth "http://localhost:8085/oauth2callback?..."
+
+URL="$1"
+
+if [[ -z "$URL" ]]; then
+    echo "Usage: ai-sandbox-auth \"<redirect_url>\""
+    echo ""
+    echo "Steps:"
+    echo "1. Start authentication in the sandbox."
+    echo "2. Complete login in your browser."
+    echo "3. When the browser redirects to localhost:8085 (and fails), copy the full URL."
+    echo "4. Run this script with the URL in quotes."
+    exit 1
+fi
+
+# Basic validation
+if [[ "$URL" != http://localhost:8085* ]]; then
+    echo "Warning: URL does not start with http://localhost:8085"
+    echo "Proceeding anyway..."
+fi
+
+# Find running sandbox containers
+# We look for containers with names starting with "ai-sandbox" that are running
+CONTAINERS=$(docker ps --format "{{.Names}}" | grep "^ai-sandbox")
+
+if [[ -z "$CONTAINERS" ]]; then
+    echo "Error: No running ai-sandbox containers found."
+    exit 1
+fi
+
+echo "Found active sandboxes:"
+echo "$CONTAINERS"
+echo "----------------------------------------"
+
+SUCCESS=false
+
+for container in $CONTAINERS; do
+    echo "Trying container: $container..."
+    
+    # We replace localhost with 127.0.0.1 just to be safe inside the container
+    INTERNAL_URL="${URL/localhost/127.0.0.1}"
+    
+    # Execute curl inside the container
+    # -s: Silent
+    # -o /dev/null: Discard output
+    # -w "%{http_code}": Print status code
+    HTTP_CODE=$(docker exec "$container" curl -s -o /dev/null -w "%{http_code}" "$INTERNAL_URL" || echo "failed")
+    
+    if [[ "$HTTP_CODE" == "200" ]]; then
+        echo "✅ Success! Authentication completed in '$container'."
+        SUCCESS=true
+        # We don't break because technically multiple containers *could* be waiting (unlikely but possible),
+        # or we might want to ensure we hit the right one if the state param matters.
+        # But usually one success is enough.
+        break 
+    elif [[ "$HTTP_CODE" == "failed" ]]; then
+        echo "❌ Failed to execute curl (container might not have curl or is unresponsive)."
+    else
+        echo "⚠️  Received HTTP $HTTP_CODE from '$container'. (Might be the wrong container or expired link)"
+    fi
+done
+
+if [[ "$SUCCESS" == "true" ]]; then
+    echo "----------------------------------------"
+    echo "Authentication forwarded successfully."
+else
+    echo "----------------------------------------"
+    echo "Could not complete authentication in any container."
+fi
