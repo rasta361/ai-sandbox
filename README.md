@@ -1,111 +1,73 @@
 # AI Sandbox
 
-Run Claude Code or OpenCode in a sandboxed Docker environment where they **cannot push code, access arbitrary websites, or leak credentials**.
+Run **OpenCode** (default) or **Claude Code** in a secure, sandboxed Docker environment. The sandbox blocks code pushes and restricts network access to prevent data leaks.
 
-## Why?
+## 🚀 Quick Start
 
-AI coding tools run with full shell access. This sandbox adds safety layers:
+1.  **Setup Configuration:**
+    ```bash
+    cp .env.example .env
+    # (Optional) Edit .env to set your git user/email
+    ```
 
-| Threat | Protection |
-|--------|------------|
-| Pushes malicious code | `git push` blocked via wrapper scripts |
-| Exfiltrates data to attacker server | Network allowlist (squid proxy) |
-| Steals credentials | `git credential` and `gh auth logout` blocked |
-| Modifies remotes | `git remote add/set-url/remove` blocked |
+2.  **Start the Sandbox:**
+    Run this from your project root (or provide the path as an argument):
+    ```bash
+    /path/to/ai-sandbox .
+    ```
+    *This starts **OpenCode** by default.*
 
-## Architecture
+3.  **Authenticate (First Run Only):**
+    Credentials persist across restarts.
+    *   **GitHub:** Run `gh auth login` inside the sandbox.
+    *   **OpenCode / Gemini:**
+        1.  The tool will prompt you to login.
+        2.  **Important:** When the authentication link appears, copy the **full URL** (ending in `...&callback_url=...`).
+        3.  Open a **new terminal** on your host machine.
+        4.  Run the helper script with the URL:
+            ```bash
+            ./ai-sandbox-auth "https://..."
+            ```
+        5.  Follow the browser flow. The script will handle the callback and log you in.
 
-```
-┌──────────────────────────────────────────────────────┐
-│  ai-sandbox (no direct internet)                     │
-│  └─► squid-proxy (allowlist) ─► Internet             │
-└──────────────────────────────────────────────────────┘
-```
-
-Two containers: The AI tool runs isolated, all traffic routes through a filtering proxy.
-
-## Usage
+## 🛠️ Usage
 
 ```bash
-# First time: copy and edit .env
-cp .env.example .env
-
-# Start sandbox with Claude Code (default)
+# Start with OpenCode (Default)
 ./ai-sandbox /path/to/project
 
-# Start sandbox with OpenCode
-./ai-sandbox /path/to/project --opencode
+# Start with Claude Code
+./ai-sandbox /path/to/project --claude
 
-# Multiple instances
-./ai-sandbox /path/to/project-a -n sandbox-a
-./ai-sandbox /path/to/project-b -n sandbox-b --opencode
+# Start with Google Gemini CLI (via OpenCode)
+./ai-sandbox /path/to/project --gemini
 
-# Unrestricted network (bypass allowlist)
-./ai-sandbox /path/to/project --unrestricted
+# Run multiple instances
+./ai-sandbox /path/to/project -n my-session-1
 ```
 
-**Arguments:**
-- `--claude` — Use Claude Code (default)
-- `--opencode` — Use OpenCode
-- `-n, --name NAME` — Instance name (for running multiple sandboxes)
-- `--build` — Rebuild the container image before starting
-- `--unrestricted` — Disable network allowlist (for research/testing)
-- `--audio` — Start PulseAudio server (default on macOS)
-- `--no-audio` — Skip PulseAudio server
-- `--dangerously-skip-permissions` — Skip permission checks (use with caution)
-- `--stop-proxy` — Stop the shared proxy container
+**Common Options:**
+*   `--build`: Rebuild the container (use if you updated the sandbox code).
+*   `--unrestricted`: Disable network allowlist (use with caution).
+*   `--stop-proxy`: Stop the shared network proxy.
 
-**Stop:** Exit the AI tool (`Ctrl+D` or `/exit`). Containers are cleaned up automatically.
+**Exit:** Press `Ctrl+D` or type `/exit`. Containers are cleaned up automatically.
 
-**First run:** Authenticate once inside the container:
-```bash
-# For Claude Code
-gh auth login   # GitHub
-claude          # Anthropic
+## 📋 Network Allowlist
 
-# For OpenCode
-opencode auth login
-```
-Credentials persist in Docker volumes across runs.
+Traffic is restricted to domains in `proxy/allowlist.txt`.
+*   **Defaults:** GitHub, Anthropic, OpenCode, PyPI, NPM.
+*   **Add Domains:** Edit `proxy/allowlist.txt` and run `./ai-sandbox-reload`.
 
-## Clipboard Support
+## 📎 Clipboard Support
 
-Clipboard sharing (copy/paste) between the sandbox and your host is supported for OpenCode.
+*   **Linux:** Run `xhost +local:docker` on your host to enable copy/paste.
+*   **WSL:** Works automatically with WSLg.
 
-**Linux Users:**
-You must authorize the Docker container to connect to your X11 display. Run this command on your host:
-```bash
-xhost +local:docker
-```
-(You may need to run this after each reboot).
+## ⚡ Alias
 
-**WSL Users:**
-Clipboard support works automatically via WSLg (GUI support), which is included in modern WSL 2 installations. Ensure your WSL is up to date (`wsl --update`).
-
-## Network Allowlist
-
-Edit `proxy/allowlist.txt` — one domain per line (supports wildcards like `.github.com`).
-
-Default: `.anthropic.com`, `.github.com`, `.githubusercontent.com`, `.pypi.org`, `.pythonhosted.org`, `.npmjs.org`, `.npmjs.com`, `.opencode.ai`
-
-Reload without restart:
-```bash
-./ai-sandbox-reload
-```
-
-## Quick Alias
-
-Add to your `~/.zshrc` or `~/.bashrc` for a short command that starts the sandbox in the current directory:
+Add this to your shell config (`~/.bashrc` or `~/.zshrc`) to run `oc` from any directory:
 
 ```bash
-alias oc='~/ai-sandbox/ai-sandbox . --opencode --build'
-```
-
-Then just run `oc` from any project directory.
-
-## Rebuild
-
-```bash
-./ai-sandbox-rebuild        # Rebuild sandbox image
-docker compose build --no-cache # Rebuild all images
+alias oc='/path/to/ai-sandbox/ai-sandbox . --build'
 ```
