@@ -49,6 +49,9 @@ RUN curl -fsSL https://bun.sh/install | bash \
 # Install Claude Code (latest on each build)
 RUN npm install -g @anthropic-ai/claude-code
 
+# Install Google Gemini CLI
+RUN npm install -g @google/gemini-cli
+
 # Install OpenCode AI
 RUN curl -fsSL https://opencode.ai/install | bash \
     && mv /root/.opencode /opt/opencode
