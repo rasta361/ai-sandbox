@@ -35,7 +35,7 @@ SANDBOX_NAME="ai-sandbox"
 NETWORK_UNRESTRICTED="false"
 DANGEROUSLY_SKIP_PERMISSIONS="false"
 PROJECT_PATH=""
-AI_TOOL="claude"  # Default tool: claude or opencode
+AI_TOOL="opencode"  # Default tool: claude or opencode
 DO_BUILD="false"  # Only build when explicitly requested
 # macOS needs PulseAudio started manually; Linux has PipeWire-Pulse by default
 IS_MACOS="false"
@@ -103,8 +103,8 @@ if [[ -z "$PROJECT_PATH" ]]; then
     echo ""
     echo "Options:"
     echo "  -n, --name NAME                    Instance name (allows multiple sandboxes)"
-    echo "  --claude                           Use Claude Code (default)"
-    echo "  --opencode                         Use OpenCode"
+    echo "  --claude                           Use Claude Code"
+    echo "  --opencode                         Use OpenCode (default)"
     echo "  --gemini                           Use Google Gemini CLI"
     echo "  --build                            Rebuild the container image"
     echo "  --unrestricted                     Disable network allowlist (for research)"
