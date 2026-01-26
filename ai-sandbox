@@ -2,28 +2,6 @@
 set -e
 
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-cd "$SCRIPT_DIR"
-
-# === Check for changes and rebuild if needed ===
-LAST_HASH_FILE=".last_built_hash"
-if [[ -d ".git" ]]; then
-    CURRENT_HASH=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-    if [[ -f "$LAST_HASH_FILE" ]]; then
-        LAST_HASH=$(cat "$LAST_HASH_FILE")
-    else
-        LAST_HASH=""
-    fi
-
-    if [[ "$CURRENT_HASH" != "$LAST_HASH" && "$CURRENT_HASH" != "unknown" ]]; then
-        echo "Detected repository changes (Hash: ${CURRENT_HASH:0:8})..."
-        if [[ -x "./ai-sandbox-rebuild" ]]; then
-            ./ai-sandbox-rebuild
-            echo "$CURRENT_HASH" > "$LAST_HASH_FILE"
-        else
-            echo "Warning: ./ai-sandbox-rebuild not found, skipping auto-rebuild."
-        fi
-    fi
-fi
 
 # Preserve original user's UID/GID and home when run with sudo
 if [[ -n "$SUDO_UID" ]]; then
@@ -52,19 +30,12 @@ if [[ "$1" == "--stop-proxy" ]]; then
     exit 0
 fi
 
-# Load environment variables from .env file
-if [[ -f "$SCRIPT_DIR/.env" ]]; then
-    set -a
-    source "$SCRIPT_DIR/.env"
-    set +a
-fi
-
 # Parse arguments first (no docker calls needed)
-SANDBOX_NAME="${SANDBOX_NAME:-ai-sandbox}"
-NETWORK_UNRESTRICTED="${NETWORK_UNRESTRICTED:-false}"
-DANGEROUSLY_SKIP_PERMISSIONS="${DANGEROUSLY_SKIP_PERMISSIONS:-false}"
+SANDBOX_NAME="ai-sandbox"
+NETWORK_UNRESTRICTED="false"
+DANGEROUSLY_SKIP_PERMISSIONS="false"
 PROJECT_PATH=""
-AI_TOOL="${AI_TOOL:-claude}"  # Default tool: claude or opencode
+AI_TOOL="claude"  # Default tool: claude or opencode
 DO_BUILD="false"  # Only build when explicitly requested
 # macOS needs PulseAudio started manually; Linux has PipeWire-Pulse by default
 IS_MACOS="false"
@@ -148,6 +119,13 @@ if [[ ! -d "$PROJECT_PATH" ]]; then
     exit 1
 fi
 PROJECT_NAME="$(basename "$PROJECT_PATH")"
+
+# Load environment variables from .env file
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
 
 # Export variables for docker-compose
 export HOST_UID HOST_GID

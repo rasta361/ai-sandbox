@@ -75,11 +75,8 @@ AI_TOOL="${AI_TOOL:-claude}"
 
 # Execute the main command based on AI_TOOL environment variable
 case "$AI_TOOL" in
-    opencode)
+    opencode|gemini)
         exec /home/devuser/.opencode/bin/opencode .
-        ;;
-    gemini)
-        exec gemini "$@"
         ;;
     claude|*)
         # If --dangerously-skip-permissions flag is set, add the flag
