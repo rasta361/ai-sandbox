@@ -6,7 +6,11 @@ services:
     environment:
       - NETWORK_UNRESTRICTED=false
     volumes:
-      - ./allowlist.txt:/etc/squid/allowlist.txt:ro
+      # Mount the directory (not the file) so atomic-save edits to allowlist.txt
+      # are picked up by SIGHUP reload. A single-file bind mount pins to the
+      # original inode, which breaks on editor atomic-rename — and on WSL2/Docker
+      # Desktop also makes the container fail to restart (stale bind-mount source).
+      - ./:/etc/squid/allowlist.d:ro
     networks:
       - ai-sandbox-proxy-net
     restart: unless-stopped

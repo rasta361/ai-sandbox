@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y \
 
 # Copy configuration
 COPY squid.conf /etc/squid/squid.conf
-COPY allowlist.txt /etc/squid/allowlist.txt
+# Baked-in default; the compose dir-mount at /etc/squid/allowlist.d overlays this at runtime
+COPY allowlist.txt /etc/squid/allowlist.d/allowlist.txt
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
