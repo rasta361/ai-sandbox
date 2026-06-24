@@ -90,6 +90,16 @@ RUN chmod 444 /opt/claude-settings.json
 COPY config/opencode.json /opt/opencode-settings.json
 RUN chmod 444 /opt/opencode-settings.json
 
+# Copy Pi settings + local-model helper to staging (installed to ~/.pi at startup)
+COPY config/pi-settings.json /opt/pi-settings.json
+RUN chmod 444 /opt/pi-settings.json
+COPY config/pi-localmodel-setup.sh /opt/pi-localmodel-setup.sh
+RUN chmod 555 /opt/pi-localmodel-setup.sh
+# `lm-refresh`: re-run local-model discovery from inside the sandbox (e.g. after
+# starting LM Studio or opening the firewall) — pi hot-reloads models.json on
+# /model, so no container restart is needed.
+RUN ln -s /opt/pi-localmodel-setup.sh /usr/local/bin/lm-refresh
+
 # Copy OpenCode plugin to staging location (will be copied to plugin dir at startup)
 COPY config/notification.js /opt/opencode-notification-plugin.js
 RUN chmod 444 /opt/opencode-notification-plugin.js

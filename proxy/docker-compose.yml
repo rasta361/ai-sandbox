@@ -5,6 +5,14 @@ services:
     container_name: ai-sandbox-proxy
     environment:
       - NETWORK_UNRESTRICTED=false
+      # When true, squid is configured to also allow host.docker.internal:1234
+      # (a local LM Studio server). Toggled by the sandbox's --local-model flag.
+      - ALLOW_HOST_MODEL=${ALLOW_HOST_MODEL:-false}
+    # Lets squid resolve the host. This is just a hosts entry — it grants no
+    # access on its own; the squid rule (gated by ALLOW_HOST_MODEL) is what opens
+    # the single host:1234 destination.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       # Mount the directory (not the file) so atomic-save edits to allowlist.txt
       # are picked up by SIGHUP reload. A single-file bind mount pins to the

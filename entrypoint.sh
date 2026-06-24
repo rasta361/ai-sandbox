@@ -79,6 +79,22 @@ case "$AI_TOOL" in
         exec /home/devuser/.opencode/bin/opencode .
         ;;
     pi)
+        # Install managed pi settings into the persistent volume (writable: pi's
+        # config isn't a security boundary — the git/gh wrappers and proxy are).
+        mkdir -p /home/devuser/.pi/agent
+        rm -f /home/devuser/.pi/agent/settings.json 2>/dev/null || true
+        cp /opt/pi-settings.json /home/devuser/.pi/agent/settings.json
+        chmod 644 /home/devuser/.pi/agent/settings.json
+
+        if [ "${ALLOW_HOST_MODEL:-false}" = "true" ]; then
+            # Generate models.json from the local LM Studio server (+ set it active)
+            /opt/pi-localmodel-setup.sh || \
+                echo "Warning: local-model setup failed; pick a model with /model in pi" >&2
+        else
+            # No local model this run — drop any stale generated provider config so
+            # pi doesn't offer an unreachable lmstudio provider.
+            rm -f /home/devuser/.pi/agent/models.json 2>/dev/null || true
+        fi
         exec pi
         ;;
     claude|*)

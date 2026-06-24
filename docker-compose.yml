@@ -13,6 +13,8 @@ services:
       - GIT_USER_EMAIL=${GIT_USER_EMAIL:-}
       - DANGEROUSLY_SKIP_PERMISSIONS=${DANGEROUSLY_SKIP_PERMISSIONS:-false}
       - AI_TOOL=${AI_TOOL:-claude}
+      - ALLOW_HOST_MODEL=${ALLOW_HOST_MODEL:-false}
+      - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-}
       - PROJECT_NAME=${PROJECT_NAME:-project}
       - WORKTREE_SUBDIR=${WORKTREE_SUBDIR:-}
       - NPM_CONFIG_PREFIX=/home/devuser/.npm-global

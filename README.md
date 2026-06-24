@@ -42,6 +42,9 @@ Run **OpenCode** (default), **Claude Code**, **Gemini**, or the **Pi** coding ag
 
 # Start with the Pi coding agent
 ./ai-sandbox /path/to/project --pi
+
+# Pi against a local LM Studio model (see "Local Models" below)
+./ai-sandbox /path/to/project --pi --local-model
 ```
 
 **Pi Authentication (First Run Only):**
@@ -79,6 +82,36 @@ that reopens a direct path around the allowlist.
 > ⚠️ Consequence: the sandbox cannot reach host services directly (e.g. host
 > audio via PulseAudio, or a local LM Studio server). Anything host-side must be
 > routed *through* the proxy.
+
+## 🧠 Local Models (LM Studio)
+
+Pi can use a local [LM Studio](https://lmstudio.ai) model running on your host,
+opted into with `--local-model`:
+
+```bash
+./ai-sandbox /path/to/project --pi --local-model
+```
+
+**On your host:**
+1.  In LM Studio, load a model and enable **"Serve on Local Network"** so it binds `0.0.0.0:1234`. Confirm the *actual* bind (the displayed LAN URL can be misleading): `ss -tlnp | grep ':1234'` should show `0.0.0.0:1234`, not `127.0.0.1:1234`.
+2.  **Linux host firewall:** containers can't reach host services by default. The launcher detects this and prints the exact one-time rule to run, scoped to the proxy's network, e.g.:
+    ```bash
+    sudo iptables -I INPUT -p tcp -s <egress-subnet> --dport 1234 -j ACCEPT
+    ```
+    This is intentionally **not persisted** across reboot — the hole re-closes on its own. Re-run it (the launcher will prompt) when you next need it.
+
+**What the flag does:**
+*   Adds a single tight rule to the proxy allowing **only** `host.docker.internal:1234` — every other destination stays blocked, and the traffic is still routed and logged through squid. Without the flag there is no host access at all.
+*   On launch, **pre-flight checks** that the model server is reachable; if not, it prints the firewall command and waits (press Enter to retry, `s` to skip).
+*   Auto-discovers loaded models from LM Studio's `/v1/models` endpoint and writes `~/.pi/agent/models.json`, setting the first as pi's active model. (Pi has no native discovery; this fills that gap.)
+
+**Refreshing without a restart:** started LM Studio or opened the firewall *after* pi was already running? Run **`lm-refresh`** from pi's shell (`!lm-refresh`), then reopen `/model` — `models.json` is re-read live, no container restart.
+
+**Notes:**
+*   The proxy is shared, so enabling `--local-model` recreates it (a brief blip if other sandboxes are running). Once enabled it stays open until `--stop-proxy`.
+*   To pin a specific model id (and as a fallback if discovery fails), set `LMSTUDIO_MODEL` in `.env`.
+
+> 🔒 **Security:** "Serve on Local Network" binds LM Studio to `0.0.0.0`, exposing its **unauthenticated** API to your whole LAN — fine on a trusted network, less so on shared/public Wi-Fi. The firewall rule is scoped to the proxy's network (not all Docker), and the in-sandbox access is a single host port, still routed through the audited proxy.
 
 ## 📎 Clipboard Support
 
