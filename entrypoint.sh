@@ -78,6 +78,9 @@ case "$AI_TOOL" in
     opencode|gemini)
         exec /home/devuser/.opencode/bin/opencode .
         ;;
+    pi)
+        exec pi
+        ;;
     claude|*)
         # If --dangerously-skip-permissions flag is set, add the flag
         if [[ "$DANGEROUSLY_SKIP_PERMISSIONS" == "true" ]]; then

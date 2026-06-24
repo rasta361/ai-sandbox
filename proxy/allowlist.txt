@@ -35,3 +35,4 @@ registry.npmjs.org
 .sentry.io
 
 # Custom domains
+.pi.dev

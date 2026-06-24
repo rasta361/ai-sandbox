@@ -1,6 +1,6 @@
 # AI Sandbox
 
-Run **OpenCode** (default) or **Claude Code** in a secure, sandboxed Docker environment. The sandbox blocks code pushes and restricts network access to prevent data leaks.
+Run **OpenCode** (default), **Claude Code**, **Gemini**, or the **Pi** coding agent in a secure, sandboxed Docker environment. The sandbox blocks code pushes and restricts network access to prevent data leaks.
 
 ## 🚀 Quick Start
 
@@ -39,7 +39,15 @@ Run **OpenCode** (default) or **Claude Code** in a secure, sandboxed Docker envi
 
 # Start with Claude Code
 ./ai-sandbox /path/to/project --claude
+
+# Start with the Pi coding agent
+./ai-sandbox /path/to/project --pi
 ```
+
+**Pi Authentication (First Run Only):**
+Pi credentials persist across restarts in a dedicated volume.
+*   Run `/login` inside Pi to authenticate a subscription provider (e.g. Claude Pro/Max), or set an API key such as `ANTHROPIC_API_KEY` in your `.env`.
+*   If `/login` opens a browser OAuth flow that redirects to a `localhost` "connection refused" page, complete it the same way as OpenCode: copy that URL and run `./ai-sandbox-auth "<url>"` from a host terminal.
 
 **Common Options:**
 *   `--build`: Rebuild the container (use if you updated the sandbox code).

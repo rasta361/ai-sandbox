@@ -33,6 +33,7 @@ services:
       - "/tmp/.X11-unix:/tmp/.X11-unix:ro"
       - "ai-sandbox-claude-config:/home/devuser/.claude"
       - "ai-sandbox-opencode-config:/home/devuser/.local/share/opencode"
+      - "ai-sandbox-pi-config:/home/devuser/.pi"
       - "ai-sandbox-gh-config:/home/devuser/.config/gh"
       - "npm-global:/home/devuser/.npm-global"
       - "python-venv:/home/devuser/.venv_sandbox"
@@ -52,6 +53,8 @@ volumes:
   ai-sandbox-claude-config:
     external: true
   ai-sandbox-opencode-config:
+    external: true
+  ai-sandbox-pi-config:
     external: true
   ai-sandbox-gh-config:
     external: true

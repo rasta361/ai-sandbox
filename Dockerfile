@@ -53,6 +53,10 @@ RUN npm install -g @anthropic-ai/claude-code
 RUN curl -fsSL https://opencode.ai/install | bash \
     && mv /root/.opencode /opt/opencode
 
+# Install Pi coding agent (latest on each build)
+# --ignore-scripts matches the official pi installer recommendation
+RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+
 # Store original binaries in /opt, install wrappers
 RUN mkdir -p /opt/real-bin \
     && mv /usr/bin/git /opt/real-bin/git \
@@ -75,6 +79,7 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.bun/install/cache \
     /home/devuser/.bun/install/global \
     /home/devuser/.opencode \
+    /home/devuser/.pi \
     && chmod -R 777 /home/devuser
 
 # Copy Claude settings to a staging location (will be copied to volume at startup)

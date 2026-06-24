@@ -17,6 +17,7 @@ fi
 # Named volumes for credentials (persist across container restarts)
 CLAUDE_VOLUME="ai-sandbox-claude-config"
 OPENCODE_VOLUME="ai-sandbox-opencode-config"
+PI_VOLUME="ai-sandbox-pi-config"
 GH_VOLUME="ai-sandbox-gh-config"
 
 # Shared proxy configuration
@@ -30,12 +31,12 @@ if [[ "$1" == "--stop-proxy" ]]; then
     exit 0
 fi
 
-# Parse arguments first (no docker calls needed)
+# Defaults (no docker calls needed)
 SANDBOX_NAME="ai-sandbox"
 NETWORK_UNRESTRICTED="false"
 DANGEROUSLY_SKIP_PERMISSIONS="false"
 PROJECT_PATH=""
-AI_TOOL="opencode"  # Default tool: claude or opencode
+AI_TOOL="opencode"  # Default tool: claude, opencode, gemini, or pi
 DO_BUILD="false"  # Only build when explicitly requested
 # macOS needs PulseAudio started manually; Linux has PipeWire-Pulse by default
 IS_MACOS="false"
@@ -43,6 +44,15 @@ if [[ "$(uname)" == "Darwin" ]]; then
     IS_MACOS="true"
 fi
 
+# Load environment variables from .env file (provides defaults).
+# Loaded BEFORE argument parsing so explicit CLI flags (e.g. --pi, -n) win.
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -a
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
+# Parse arguments (override .env defaults)
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --unrestricted)
@@ -73,6 +83,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --gemini)
             AI_TOOL="gemini"
+            shift
+            ;;
+        --pi)
+            AI_TOOL="pi"
             shift
             ;;
         --build)
@@ -106,6 +120,7 @@ if [[ -z "$PROJECT_PATH" ]]; then
     echo "  --claude                           Use Claude Code"
     echo "  --opencode                         Use OpenCode (default)"
     echo "  --gemini                           Use Google Gemini CLI"
+    echo "  --pi                               Use Pi coding agent"
     echo "  --build                            Rebuild the container image"
     echo "  --unrestricted                     Disable network allowlist (for research)"
     echo "  --dangerously-skip-permissions     Skip permission checks (DANGEROUS)"
@@ -119,13 +134,6 @@ if [[ ! -d "$PROJECT_PATH" ]]; then
     exit 1
 fi
 PROJECT_NAME="$(basename "$PROJECT_PATH")"
-
-# Load environment variables from .env file
-if [[ -f "$SCRIPT_DIR/.env" ]]; then
-    set -a
-    source "$SCRIPT_DIR/.env"
-    set +a
-fi
 
 # Export variables for docker-compose
 export HOST_UID HOST_GID
@@ -186,6 +194,7 @@ CONTAINER_PID=$!
     MISSING=""
     docker volume inspect "$CLAUDE_VOLUME" &>/dev/null || MISSING="$MISSING $CLAUDE_VOLUME"
     docker volume inspect "$OPENCODE_VOLUME" &>/dev/null || MISSING="$MISSING $OPENCODE_VOLUME"
+    docker volume inspect "$PI_VOLUME" &>/dev/null || MISSING="$MISSING $PI_VOLUME"
     docker volume inspect "$GH_VOLUME" &>/dev/null || MISSING="$MISSING $GH_VOLUME"
     echo "$MISSING"
 } > /tmp/ai-sandbox-volumes-status.$$ &
@@ -243,9 +252,10 @@ if [[ -n "$MISSING_VOLUMES" ]]; then
     docker run --rm \
         -v "${CLAUDE_VOLUME}:/claude-config" \
         -v "${OPENCODE_VOLUME}:/opencode-config" \
+        -v "${PI_VOLUME}:/pi-config" \
         -v "${GH_VOLUME}:/gh-config" \
         alpine:latest \
-        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /gh-config" 2>/dev/null || true
+        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /pi-config /gh-config" 2>/dev/null || true
 fi
 
 # === Ensure proxy is running ===
