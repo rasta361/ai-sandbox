@@ -12,10 +12,23 @@ services:
       # Desktop also makes the container fail to restart (stale bind-mount source).
       - ./:/etc/squid/allowlist.d:ro
     networks:
+      # Faces the sandboxes. This network is internal:true (see below), so the
+      # proxy is the ONLY thing a sandbox can reach on it.
       - ai-sandbox-proxy-net
+      # The proxy's OWN path to the internet. Sandboxes are NOT attached here,
+      # so the only way out for them is through squid's allowlist.
+      - ai-sandbox-egress
     restart: unless-stopped
 
 networks:
+  # Sandboxes attach to ONLY this network. internal:true makes Docker install no
+  # NAT/masquerade and no external forwarding for the bridge, so a container here
+  # has no route to the internet or the host — its sole reachable peer is the
+  # proxy. This is what makes the egress filter fail-closed instead of an opt-in
+  # honored only by apps that read HTTP_PROXY.
   ai-sandbox-proxy-net:
     name: ai-sandbox-proxy-net
-    # internal: true - removed: proxy needs internet access to forward requests
+    internal: true
+  # Internet-facing network used ONLY by the proxy to forward allowed requests.
+  ai-sandbox-egress:
+    name: ai-sandbox-egress

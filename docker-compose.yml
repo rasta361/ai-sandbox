@@ -39,15 +39,17 @@ services:
       - "python-venv:/home/devuser/.venv_sandbox"
       - "opencode-cache:/home/devuser/.cache/opencode"
     networks:
+      # The ONLY network the sandbox is attached to. It is internal:true (defined
+      # in proxy/docker-compose.yml), so the container has no route to the
+      # internet or the host except through the squid proxy. Do NOT add a second
+      # bridge network here — that reintroduces a direct egress path around the
+      # allowlist (this is exactly the hole the old `host-access` bridge created).
       - ai-sandbox-proxy-net
-      - host-access
     restart: "no"
 
 networks:
   ai-sandbox-proxy-net:
     external: true
-  host-access:
-    driver: bridge
 
 volumes:
   ai-sandbox-claude-config:

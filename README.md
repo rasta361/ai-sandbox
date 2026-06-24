@@ -62,6 +62,24 @@ Traffic is restricted to domains in `proxy/allowlist.txt`.
 *   **Defaults:** GitHub, Anthropic, OpenCode, PyPI, NPM.
 *   **Add Domains:** Edit `proxy/allowlist.txt` and run `./ai-sandbox-reload` (while the sandbox/proxy is running).
 
+### How it's enforced (fail-closed)
+
+The sandbox container is attached **only** to an `internal: true` Docker network
+(`ai-sandbox-proxy-net`). Docker installs no NAT or external routing for that
+network, so the container has **no route to the internet or the host** — its only
+reachable peer is the squid proxy. The proxy is dual-homed: it also sits on a
+separate internet-facing network (`ai-sandbox-egress`) and forwards only
+allowlisted requests.
+
+This means the restriction does **not** depend on apps honoring `HTTP_PROXY`. A
+process that ignores the proxy env vars (or speaks raw TCP/UDP/DNS) simply has
+nowhere to go. **Never attach the sandbox service to a second bridge network** —
+that reopens a direct path around the allowlist.
+
+> ⚠️ Consequence: the sandbox cannot reach host services directly (e.g. host
+> audio via PulseAudio, or a local LM Studio server). Anything host-side must be
+> routed *through* the proxy.
+
 ## 📎 Clipboard Support
 
 *   **Linux:** Run `xhost +local:docker` on your host to enable copy/paste.
