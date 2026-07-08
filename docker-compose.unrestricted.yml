@@ -1,0 +1,45 @@
+# Overlay used ONLY for `--unrestricted` sessions (added via a second `-f` by the
+# ai-sandbox launcher). It converts the sandbox from the default fail-closed
+# topology — attached solely to the internal proxy-net, with all egress forced
+# through the squid allowlist — into a DIRECT-egress topology: the sandbox is put
+# on its own ordinary bridge (which Docker NATs to the internet) and the *_PROXY
+# vars the base file bakes in are blanked.
+#
+# This deliberately LEAVES the fail-closed guarantee. It is an explicit,
+# per-session escape hatch for research; normal sessions never load this file and
+# are unaffected. Because it swaps only this container's network, it does NOT
+# touch the shared proxy or any other concurrent session.
+#
+# Requires Docker Compose >= 2.24.4 for the `!override` / `!reset` merge tags.
+# Validate the merge before launching with:
+#   docker compose -f docker-compose.yml -f docker-compose.unrestricted.yml config
+services:
+  sandbox:
+    # `!override` REPLACES the base networks list instead of appending to it, so
+    # the sandbox is not on the internal proxy-net at all — it reaches the
+    # internet directly through its own bridge. Plain appending would keep
+    # proxy-net attached (and, since that network is external, would also make
+    # this session depend on the proxy stack being up).
+    networks: !override
+      - unrestricted-net
+    environment:
+      # Blank the proxy vars the base file sets, otherwise every HTTP client would
+      # still try to reach ai-sandbox-proxy:3128 — a proxy this session never
+      # starts. `environment` entries merge by name, so these win over the base.
+      # NO_PROXY=* is belt-and-suspenders for clients that treat empty vars oddly.
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - NO_PROXY=*
+      - no_proxy=*
+
+networks:
+  # Drop the base's external proxy-net declaration so this session has no
+  # dependency on the proxy stack (or its network) existing.
+  ai-sandbox-proxy-net: !reset null
+  # A plain, internet-capable bridge. No `internal: true`, so Docker installs the
+  # usual NAT/masquerade and the container can reach the internet and the host.
+  # Left compose-managed and unnamed so it is project-scoped (one per session).
+  unrestricted-net:
+    driver: bridge

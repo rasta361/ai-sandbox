@@ -115,4 +115,7 @@ RUN chmod 755 /entrypoint.sh
 
 WORKDIR /home/devuser
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["claude"]
+# Tool selection is driven by the AI_TOOL env var in entrypoint.sh, not by CMD.
+# Keep CMD empty so nothing leaks into "$@" — a non-empty CMD (e.g. "claude") would
+# be passed to the CLI as a literal initial prompt.
+CMD []

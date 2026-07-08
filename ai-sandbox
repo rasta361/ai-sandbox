@@ -63,7 +63,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --unrestricted)
             NETWORK_UNRESTRICTED="true"
-            echo "Warning: Network unrestricted mode enabled"
+            echo "Warning: --unrestricted — this session bypasses the proxy for DIRECT internet egress (no allowlist, no audit log)"
             shift
             ;;
         --dangerously-skip-permissions)
@@ -133,7 +133,7 @@ if [[ -z "$PROJECT_PATH" ]]; then
     echo "  --pi                               Use Pi coding agent"
     echo "  --local-model                      Allow the proxy to reach a local LM Studio on host:1234"
     echo "  --build                            Rebuild the container image"
-    echo "  --unrestricted                     Disable network allowlist (for research)"
+    echo "  --unrestricted                     Bypass the proxy entirely: direct internet, no allowlist (for research)"
     echo "  --dangerously-skip-permissions     Skip permission checks (DANGEROUS)"
     echo "  --stop-proxy                       Stop the shared proxy container"
     exit 1
@@ -272,50 +272,58 @@ if [[ -n "$MISSING_VOLUMES" ]]; then
 fi
 
 # === Ensure proxy is running (with the right host-model setting) ===
-# The proxy is shared across instances, so its host.docker.internal:1234 rule is
-# global state. Policy is additive: we (re)create the proxy only to ENABLE
-# local-model access, never to disable it — so unrelated sessions keep reusing the
-# proxy without surprise restarts. Use `--stop-proxy` to reset it to closed.
-PROXY_NEEDS_WAIT="false"
-if [[ "$PROXY_STATUS" != "running" ]]; then
-    echo "Starting shared proxy..."
-    docker compose -p "$PROXY_PROJECT" -f "$SCRIPT_DIR/proxy/docker-compose.yml" up -d --build
-    PROXY_NEEDS_WAIT="true"
+# Skipped entirely for --unrestricted sessions: those bypass the proxy for direct
+# egress (see docker-compose.unrestricted.yml), so there is nothing to start and
+# no allowlist in force. This only swaps THIS session's network — the shared proxy
+# and any other concurrent session are untouched.
+if [[ "$NETWORK_UNRESTRICTED" == "true" ]]; then
+    echo "Unrestricted mode: bypassing the shared proxy — this session has DIRECT internet egress, NOT filtered by the allowlist or logged."
 else
-    CURRENT_HOST_MODEL="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$PROXY_CONTAINER" 2>/dev/null | sed -n 's/^ALLOW_HOST_MODEL=//p')"
-    [[ -z "$CURRENT_HOST_MODEL" ]] && CURRENT_HOST_MODEL="false"
-    if [[ "$ALLOW_HOST_MODEL" == "true" && "$CURRENT_HOST_MODEL" != "true" ]]; then
-        echo "Enabling local-model access on the shared proxy (recreating it; this briefly interrupts other sessions)..."
-        docker compose -p "$PROXY_PROJECT" -f "$SCRIPT_DIR/proxy/docker-compose.yml" up -d --build --force-recreate
+    # The proxy is shared across instances, so its host.docker.internal:1234 rule
+    # is global state. Policy is additive: we (re)create the proxy only to ENABLE
+    # local-model access, never to disable it — so unrelated sessions keep reusing
+    # the proxy without surprise restarts. Use `--stop-proxy` to reset it to closed.
+    PROXY_NEEDS_WAIT="false"
+    if [[ "$PROXY_STATUS" != "running" ]]; then
+        echo "Starting shared proxy..."
+        docker compose -p "$PROXY_PROJECT" -f "$SCRIPT_DIR/proxy/docker-compose.yml" up -d --build
         PROXY_NEEDS_WAIT="true"
     else
-        echo "Reusing existing proxy..."
-        if [[ "$ALLOW_HOST_MODEL" != "true" && "$CURRENT_HOST_MODEL" == "true" ]]; then
-            echo "Note: the shared proxy still has local-model access enabled (from another session). Use --stop-proxy to reset."
+        CURRENT_HOST_MODEL="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$PROXY_CONTAINER" 2>/dev/null | sed -n 's/^ALLOW_HOST_MODEL=//p')"
+        [[ -z "$CURRENT_HOST_MODEL" ]] && CURRENT_HOST_MODEL="false"
+        if [[ "$ALLOW_HOST_MODEL" == "true" && "$CURRENT_HOST_MODEL" != "true" ]]; then
+            echo "Enabling local-model access on the shared proxy (recreating it; this briefly interrupts other sessions)..."
+            docker compose -p "$PROXY_PROJECT" -f "$SCRIPT_DIR/proxy/docker-compose.yml" up -d --build --force-recreate
+            PROXY_NEEDS_WAIT="true"
+        else
+            echo "Reusing existing proxy..."
+            if [[ "$ALLOW_HOST_MODEL" != "true" && "$CURRENT_HOST_MODEL" == "true" ]]; then
+                echo "Note: the shared proxy still has local-model access enabled (from another session). Use --stop-proxy to reset."
+            fi
         fi
     fi
-fi
 
-if [[ "$PROXY_NEEDS_WAIT" == "true" ]]; then
-    echo "Waiting for proxy to be ready..."
-    for i in {1..30}; do
-        if docker exec "$PROXY_CONTAINER" pgrep squid >/dev/null 2>&1; then
-            break
-        fi
-        sleep 0.2
-    done
-fi
-
-# Warn if unrestricted mode requested with shared proxy
-if [[ "$NETWORK_UNRESTRICTED" == "true" ]]; then
-    echo "Warning: --unrestricted ignored with shared proxy. Stop proxy first: docker rm -f $PROXY_CONTAINER"
+    if [[ "$PROXY_NEEDS_WAIT" == "true" ]]; then
+        echo "Waiting for proxy to be ready..."
+        for i in {1..30}; do
+            if docker exec "$PROXY_CONTAINER" pgrep squid >/dev/null 2>&1; then
+                break
+            fi
+            sleep 0.2
+        done
+    fi
 fi
 
 # === Pre-flight: is a local model reachable through the proxy? ===
 # Catches the common setup gaps (LM Studio not running / not bound to 0.0.0.0, or
 # the host firewall blocking the proxy) BEFORE the container starts, so discovery
 # succeeds on first launch and no restart is needed. Interactive only ([ -t 0 ]).
-if [[ "$ALLOW_HOST_MODEL" == "true" && -t 0 ]]; then
+# Skipped in --unrestricted mode: there is no proxy container to probe from, and
+# the sandbox reaches host.docker.internal:1234 directly over its own bridge.
+if [[ "$ALLOW_HOST_MODEL" == "true" && "$NETWORK_UNRESTRICTED" == "true" ]]; then
+    echo "Note: --local-model with --unrestricted reaches host:1234 directly (no proxy). If the model isn't reachable inside the sandbox, allow that container's bridge subnet to host:1234 in your firewall."
+fi
+if [[ "$ALLOW_HOST_MODEL" == "true" && "$NETWORK_UNRESTRICTED" != "true" && -t 0 ]]; then
     # Scope the firewall hint to the proxy's egress network — the only container
     # that actually connects to the host — not every Docker container.
     EGRESS_SUBNET="$(docker network inspect ai-sandbox-egress -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)"
@@ -341,15 +349,24 @@ if [[ "$ALLOW_HOST_MODEL" == "true" && -t 0 ]]; then
 fi
 
 # === Start sandbox container ===
+# --unrestricted overlays a direct-egress topology (takes the sandbox off the
+# proxy-net and blanks the *_PROXY vars). The same -f set must be passed to every
+# compose call for this session, including the final `down`, so the overlay's
+# per-session bridge is torn down too.
+SANDBOX_COMPOSE_ARGS=(-f docker-compose.yml)
+if [[ "$NETWORK_UNRESTRICTED" == "true" ]]; then
+    SANDBOX_COMPOSE_ARGS+=(-f docker-compose.unrestricted.yml)
+fi
+
 SANDBOX_IMAGE="${COMPOSE_PROJECT_NAME}-sandbox"
 if [[ "$DO_BUILD" == "true" ]]; then
-    docker compose up -d --build --wait
+    docker compose "${SANDBOX_COMPOSE_ARGS[@]}" up -d --build --wait
 else
     if ! docker image inspect "$SANDBOX_IMAGE" &>/dev/null; then
         echo "Image not found, building..."
-        docker compose up -d --build --wait
+        docker compose "${SANDBOX_COMPOSE_ARGS[@]}" up -d --build --wait
     else
-        docker compose up -d --wait
+        docker compose "${SANDBOX_COMPOSE_ARGS[@]}" up -d --wait
     fi
 fi
 
@@ -358,4 +375,4 @@ set_terminal_title
 docker attach "${SANDBOX_NAME}"
 
 # Clean up sandbox container only (keep shared proxy running)
-docker compose down 2>/dev/null || true
+docker compose "${SANDBOX_COMPOSE_ARGS[@]}" down 2>/dev/null || true

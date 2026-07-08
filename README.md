@@ -54,7 +54,7 @@ Pi credentials persist across restarts in a dedicated volume.
 
 **Common Options:**
 *   `--build`: Rebuild the container (use if you updated the sandbox code).
-*   `--unrestricted`: Disable network allowlist (use with caution).
+*   `--unrestricted`: **Bypass the proxy entirely** — the sandbox gets a normal bridge with direct internet access instead of going through the allowlist. This leaves the fail-closed guarantee (no allowlist, no egress audit log) and is meant for research; use with caution. Only this session is affected — the shared proxy and other sessions keep their restrictions. See [Unrestricted sessions](#unrestricted-sessions).
 *   `--stop-proxy`: Stop the shared network proxy.
 
 **Exit:** Press `Ctrl+D` or type `/exit`. Containers are cleaned up automatically.
@@ -76,12 +76,43 @@ allowlisted requests.
 
 This means the restriction does **not** depend on apps honoring `HTTP_PROXY`. A
 process that ignores the proxy env vars (or speaks raw TCP/UDP/DNS) simply has
-nowhere to go. **Never attach the sandbox service to a second bridge network** —
-that reopens a direct path around the allowlist.
+nowhere to go. **In the default topology, never attach the sandbox service to a
+second bridge network** — that reopens a direct path around the allowlist. (The
+one sanctioned exception is `--unrestricted`, which *replaces* — not adds to — the
+proxy-net with a direct-egress bridge on purpose; see below.)
 
 > ⚠️ Consequence: the sandbox cannot reach host services directly (e.g. host
 > audio via PulseAudio, or a local LM Studio server). Anything host-side must be
 > routed *through* the proxy.
+
+### Unrestricted sessions
+
+`--unrestricted` is the deliberate escape hatch from the fail-closed model. Rather
+than trying to "open" the shared proxy (which would drop the allowlist for *every*
+concurrent session, and only for HTTP/HTTPS at that), it takes the sandbox **off**
+the proxy entirely: an overlay compose file (`docker-compose.unrestricted.yml`)
+puts the container on its own ordinary bridge network — which Docker NATs to the
+internet — and blanks the `HTTP_PROXY`/`HTTPS_PROXY` vars. The shared proxy is not
+even started for that session.
+
+Because this only swaps one container's network, it is **per-session**: other
+running sandboxes keep their allowlist, and there is no shared global state to
+reset afterwards. The trade-offs, by design:
+
+*   **No allowlist** — the session can reach any host, on any port, over any
+    protocol (not just HTTP/HTTPS).
+*   **No egress audit log** — traffic no longer passes through squid, so it isn't
+    recorded in the proxy's access log.
+*   **Host services work directly** — e.g. `--local-model` reaches
+    `host.docker.internal:1234` without a squid rule (subject to your host
+    firewall).
+
+Requires Docker Compose ≥ 2.24.4 (for the `!override` / `!reset` merge tags). You
+can preview exactly what the overlay produces without launching anything:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.unrestricted.yml config
+```
 
 ## 🧠 Local Models (LM Studio)
 
