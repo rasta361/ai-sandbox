@@ -19,6 +19,13 @@ CLAUDE_VOLUME="ai-sandbox-claude-config"
 OPENCODE_VOLUME="ai-sandbox-opencode-config"
 PI_VOLUME="ai-sandbox-pi-config"
 GH_VOLUME="ai-sandbox-gh-config"
+# Shared Go caches (fixed names, shared across ALL sandbox instances — not keyed to
+# SANDBOX_NAME — so each module version is fetched/compiled once, not per project).
+# Safe to share: Go's module and build caches are content-addressed and
+# concurrency-safe (file-locked). Declared external in docker-compose.yml, so they
+# must exist before `up` — created below alongside the config volumes.
+GO_MOD_VOLUME="ai-sandbox-go-mod-cache"
+GO_BUILD_VOLUME="ai-sandbox-go-build-cache"
 
 # Shared proxy configuration
 PROXY_CONTAINER="ai-sandbox-proxy"
@@ -203,12 +210,14 @@ CONTAINER_PID=$!
 
 
 {
-    # Check all 3 volumes at once
+    # Check all config + shared-cache volumes at once
     MISSING=""
     docker volume inspect "$CLAUDE_VOLUME" &>/dev/null || MISSING="$MISSING $CLAUDE_VOLUME"
     docker volume inspect "$OPENCODE_VOLUME" &>/dev/null || MISSING="$MISSING $OPENCODE_VOLUME"
     docker volume inspect "$PI_VOLUME" &>/dev/null || MISSING="$MISSING $PI_VOLUME"
     docker volume inspect "$GH_VOLUME" &>/dev/null || MISSING="$MISSING $GH_VOLUME"
+    docker volume inspect "$GO_MOD_VOLUME" &>/dev/null || MISSING="$MISSING $GO_MOD_VOLUME"
+    docker volume inspect "$GO_BUILD_VOLUME" &>/dev/null || MISSING="$MISSING $GO_BUILD_VOLUME"
     echo "$MISSING"
 } > /tmp/ai-sandbox-volumes-status.$$ &
 VOLUMES_PID=$!
@@ -267,8 +276,10 @@ if [[ -n "$MISSING_VOLUMES" ]]; then
         -v "${OPENCODE_VOLUME}:/opencode-config" \
         -v "${PI_VOLUME}:/pi-config" \
         -v "${GH_VOLUME}:/gh-config" \
+        -v "${GO_MOD_VOLUME}:/go-mod-cache" \
+        -v "${GO_BUILD_VOLUME}:/go-build-cache" \
         alpine:latest \
-        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /pi-config /gh-config" 2>/dev/null || true
+        sh -c "chown -R ${HOST_UID}:${HOST_GID} /claude-config /opencode-config /pi-config /gh-config /go-mod-cache /go-build-cache" 2>/dev/null || true
 fi
 
 # === Ensure proxy is running (with the right host-model setting) ===

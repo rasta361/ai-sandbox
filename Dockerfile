@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     ffmpeg \
     pulseaudio-utils \
+    socat \
     xclip \
     xsel \
     wl-clipboard \
@@ -57,6 +58,20 @@ RUN curl -fsSL https://opencode.ai/install | bash \
 # --ignore-scripts matches the official pi installer recommendation
 RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent
 
+# Install Go (latest stable on each build, matching the "latest on build" pattern
+# used for the tools above). The official tarball goes to /usr/local/go; symlink
+# the toolchain into /usr/local/bin — which is on the PATH the compose file pins at
+# runtime — so `go`/`gofmt` resolve without a Dockerfile ENV (compose would
+# override it). GOPATH (~/go, incl. go install'd bins) and the build cache
+# (~/.cache/go-build) are backed by shared volumes (see docker-compose.yml), so
+# modules and build artifacts persist across sessions and projects.
+RUN GO_VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)" \
+    && curl -fsSL "https://go.dev/dl/${GO_VERSION}.linux-$(dpkg --print-architecture).tar.gz" -o /tmp/go.tar.gz \
+    && tar -C /usr/local -xzf /tmp/go.tar.gz \
+    && rm /tmp/go.tar.gz \
+    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
+    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
 # Store original binaries in /opt, install wrappers
 RUN mkdir -p /opt/real-bin \
     && mv /usr/bin/git /opt/real-bin/git \
@@ -80,6 +95,8 @@ RUN mkdir -p /home/devuser/.claude \
     /home/devuser/.bun/install/global \
     /home/devuser/.opencode \
     /home/devuser/.pi \
+    /home/devuser/go/bin \
+    /home/devuser/.cache/go-build \
     && chmod -R 777 /home/devuser
 
 # Copy Claude settings to a staging location (will be copied to volume at startup)

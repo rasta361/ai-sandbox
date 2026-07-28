@@ -18,7 +18,7 @@ services:
       - PROJECT_NAME=${PROJECT_NAME:-project}
       - WORKTREE_SUBDIR=${WORKTREE_SUBDIR:-}
       - NPM_CONFIG_PREFIX=/home/devuser/.npm-global
-      - PATH=/home/devuser/.opencode/bin:/home/devuser/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - PATH=/home/devuser/.opencode/bin:/home/devuser/.npm-global/bin:/home/devuser/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - HTTP_PROXY=http://ai-sandbox-proxy:3128
       - HTTPS_PROXY=http://ai-sandbox-proxy:3128
       - http_proxy=http://ai-sandbox-proxy:3128
@@ -40,6 +40,10 @@ services:
       - "npm-global:/home/devuser/.npm-global"
       - "python-venv:/home/devuser/.venv_sandbox"
       - "opencode-cache:/home/devuser/.cache/opencode"
+      # Go caches, shared across all sandbox instances (fixed volume names). GOPATH
+      # (~/go: pkg/mod + go install'd bins) and the build cache (~/.cache/go-build).
+      - "ai-sandbox-go-mod-cache:/home/devuser/go"
+      - "ai-sandbox-go-build-cache:/home/devuser/.cache/go-build"
     networks:
       # The ONLY network the sandbox is attached to. It is internal:true (defined
       # in proxy/docker-compose.yml), so the container has no route to the
@@ -68,3 +72,12 @@ volumes:
     name: "${SANDBOX_NAME:-ai-sandbox}-python-venv"
   opencode-cache:
     name: "${SANDBOX_NAME:-ai-sandbox}-opencode-cache"
+  # Shared across all instances (fixed names), created by the launcher. Go's module
+  # and build caches are content-addressed and concurrency-safe, so sharing them
+  # means each module version is fetched/compiled once rather than per project.
+  # (external + no `name:` → the key is the literal volume name, like the config
+  # volumes above; must match GO_*_VOLUME in the launcher.)
+  ai-sandbox-go-mod-cache:
+    external: true
+  ai-sandbox-go-build-cache:
+    external: true
