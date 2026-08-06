@@ -40,6 +40,12 @@ registry.npmjs.org
 proxy.golang.org
 sum.golang.org
 
+# OpenTofu provider/module registry (`tofu init`). Exact host, matching the
+# tight-allowlist style used above. Provider and module artifacts themselves are
+# served from github.com / objects.githubusercontent.com, already allowed.
+# (The tofu binary is fetched at image-build time, which isn't proxied.)
+registry.opentofu.org
+
 # Sentry (error reporting)
 .sentry.io
 

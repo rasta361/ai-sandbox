@@ -72,6 +72,24 @@ RUN GO_VERSION="$(curl -fsSL 'https://go.dev/VERSION?m=text' | head -n1)" \
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
+# Install OpenTofu (latest stable on each build, same pattern as Go above).
+# Uses the standalone tarball from GitHub releases rather than the .deb repo so
+# there's no extra apt source to keep alive; the release version comes from the
+# /releases/latest redirect instead of the GitHub API to avoid unauthenticated
+# rate limits breaking builds. The published SHA256SUMS is checked before the
+# binary is unpacked into /usr/local/bin (on the PATH the compose file pins).
+# `tofu init` needs registry.opentofu.org at runtime — see proxy/allowlist.txt.
+RUN TOFU_VERSION="$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/opentofu/opentofu/releases/latest | sed 's#.*/tag/v##')" \
+    && TOFU_ARCH="$(dpkg --print-architecture)" \
+    && TOFU_TARBALL="tofu_${TOFU_VERSION}_linux_${TOFU_ARCH}.tar.gz" \
+    && TOFU_BASE="https://github.com/opentofu/opentofu/releases/download/v${TOFU_VERSION}" \
+    && curl -fsSL "${TOFU_BASE}/${TOFU_TARBALL}" -o /tmp/tofu.tar.gz \
+    && curl -fsSL "${TOFU_BASE}/tofu_${TOFU_VERSION}_SHA256SUMS" -o /tmp/tofu.sha256sums \
+    && grep " ${TOFU_TARBALL}\$" /tmp/tofu.sha256sums | sed "s#${TOFU_TARBALL}#/tmp/tofu.tar.gz#" | sha256sum -c - \
+    && tar -C /usr/local/bin -xzf /tmp/tofu.tar.gz tofu \
+    && chmod 755 /usr/local/bin/tofu \
+    && rm /tmp/tofu.tar.gz /tmp/tofu.sha256sums
+
 # Store original binaries in /opt, install wrappers
 RUN mkdir -p /opt/real-bin \
     && mv /usr/bin/git /opt/real-bin/git \
