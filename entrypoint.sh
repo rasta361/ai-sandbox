@@ -47,6 +47,21 @@ fi
 # Ensure npm directory exists
 mkdir -p /home/devuser/.npm-global
 
+# Purge any Claude Code copy left in the persistent npm-global volume by the old
+# in-container auto-updater. That volume is FIRST on PATH, so a stale copy here
+# would shadow the version baked into the image and make the running version
+# drift per-sandbox across restarts (the "different version every restart" bug).
+# The image copy at /usr/local/bin/claude is the single source of truth (the
+# updater is disabled via DISABLE_AUTOUPDATER=1 in docker-compose.yml); this
+# self-heals volumes created before that fix. Other user-installed npm globals
+# are left untouched.
+# Remove the whole @anthropic-ai scope (Claude Code plus any per-platform native
+# binary sub-packages it pulls in as optional deps) and the bin symlink. Nothing
+# else in this volume uses that scope — pi is @earendil-works and lives in the
+# image — so this is version-proof and touches no other user global.
+rm -rf /home/devuser/.npm-global/lib/node_modules/@anthropic-ai \
+       /home/devuser/.npm-global/bin/claude 2>/dev/null || true
+
 # Ensure OpenCode cache directory exists and is writable
 mkdir -p /home/devuser/.cache/opencode
 

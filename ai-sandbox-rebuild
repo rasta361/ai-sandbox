@@ -13,7 +13,9 @@ export HOST_GID="$(id -g)"
 export PROJECT_PATH="$SCRIPT_DIR"
 
 echo "Building ai-sandbox image..."
-docker compose build "$@"
+# Fresh CACHEBUST so the Claude Code layer re-runs and re-fetches the latest
+# version instead of reusing a stale cached layer (see Dockerfile).
+docker compose build --build-arg "CACHEBUST=$(date +%s)" "$@"
 
 echo ""
 echo "Cleaning up old build cache and dangling images..."

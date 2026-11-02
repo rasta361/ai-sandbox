@@ -371,7 +371,11 @@ fi
 
 SANDBOX_IMAGE="${COMPOSE_PROJECT_NAME}-sandbox"
 if [[ "$DO_BUILD" == "true" ]]; then
-    docker compose "${SANDBOX_COMPOSE_ARGS[@]}" up -d --build --wait
+    # Fresh CACHEBUST so --build actually re-fetches the latest Claude Code
+    # instead of reusing a stale cached layer (see Dockerfile).
+    export CACHEBUST="$(date +%s)"
+    docker compose "${SANDBOX_COMPOSE_ARGS[@]}" build --build-arg "CACHEBUST=${CACHEBUST}"
+    docker compose "${SANDBOX_COMPOSE_ARGS[@]}" up -d --wait
 else
     if ! docker image inspect "$SANDBOX_IMAGE" &>/dev/null; then
         echo "Image not found, building..."

@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Sandbox Architecture</title>
+<style>
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #eef1f5;
+  --ink: #1b2330;
+  --muted: #5b6676;
+  --line: #d3d9e2;
+  --accent: #2f6fdb;
+  --accent-soft: #e3ecfc;
+  --danger: #c8372d;
+  --danger-soft: #fbe6e4;
+  --ok: #1f8a4c;
+  /* persistence tiers */
+  --t-image: #6d4fc7;   --t-image-soft: #ece7fb;
+  --t-global: #1f8a4c;  --t-global-soft: #e1f4e9;
+  --t-inst: #b7700b;    --t-inst-soft: #fbf0dc;
+  --t-bind: #2f6fdb;    --t-bind-soft: #e3ecfc;
+  --t-eph: #8a94a3;     --t-eph-soft: #eceef2;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1319; --surface: #171c24; --surface-2: #1f2630; --ink: #e6eaf0; --muted: #9aa5b4;
+    --line: #2e3744; --accent: #6ea0f5; --accent-soft: #1c2a42; --danger: #f07167; --danger-soft: #3a1e1e; --ok: #4cc584;
+    --t-image: #a58cf5; --t-image-soft: #2a2343; --t-global: #4cc584; --t-global-soft: #173226;
+    --t-inst: #f0b04f; --t-inst-soft: #3a2c14; --t-bind: #6ea0f5; --t-bind-soft: #1c2a42; --t-eph: #8e98a8; --t-eph-soft: #262c35;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1319; --surface: #171c24; --surface-2: #1f2630; --ink: #e6eaf0; --muted: #9aa5b4;
+  --line: #2e3744; --accent: #6ea0f5; --accent-soft: #1c2a42; --danger: #f07167; --danger-soft: #3a1e1e; --ok: #4cc584;
+  --t-image: #a58cf5; --t-image-soft: #2a2343; --t-global: #4cc584; --t-global-soft: #173226;
+  --t-inst: #f0b04f; --t-inst-soft: #3a2c14; --t-bind: #6ea0f5; --t-bind-soft: #1c2a42; --t-eph: #8e98a8; --t-eph-soft: #262c35;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 64px; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 var(--sans); }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+code { background: var(--surface-2); padding: .1em .35em; border-radius: 4px; }
+a { color: var(--accent); }
+
+nav.top { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+nav.top .inner { max-width: 1120px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 6px; align-items: center; overflow-x: auto; }
+nav.top .brand { font-weight: 700; margin-right: 10px; white-space: nowrap; }
+nav.top a { text-decoration: none; color: var(--muted); font-size: 14px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+nav.top a:hover { background: var(--surface-2); color: var(--ink); }
+nav.top button { margin-left: auto; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+
+main { max-width: 1120px; margin: 0 auto; padding: 0 16px 80px; }
+header.hero { padding: 48px 0 24px; }
+header.hero h1 { font-size: clamp(28px, 4vw, 40px); margin: 0 0 8px; letter-spacing: -.02em; }
+header.hero p { color: var(--muted); max-width: 760px; margin: 0; font-size: 17px; }
+
+section { margin-top: 56px; }
+section > h2 { font-size: 26px; margin: 0 0 6px; letter-spacing: -.01em; }
+section > .lede { color: var(--muted); margin: 0 0 20px; max-width: 800px; }
+h3 { font-size: 18px; margin: 28px 0 10px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.figure { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; }
+.figure svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.caption { color: var(--muted); font-size: 14px; margin-top: 8px; }
+
+.tldr { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 24px; }
+.tldr .card { padding: 14px 16px; }
+.tldr b { display: block; margin-bottom: 2px; }
+.tldr span { color: var(--muted); font-size: 14px; }
+
+/* SVG diagram styling */
+svg text { font-family: var(--sans); fill: var(--ink); }
+svg .t-title { font-weight: 700; font-size: 15px; }
+svg .t-sub { font-size: 12px; fill: var(--muted); }
+svg .t-cap { font-size: 11px; font-weight: 700; letter-spacing: .08em; fill: var(--muted); }
+svg .t-mono { font-family: var(--mono); font-size: 12px; }
+svg .host { fill: none; stroke: var(--line); stroke-width: 2; stroke-dasharray: 8 6; }
+svg .box { fill: var(--surface-2); stroke: var(--line); stroke-width: 1.5; }
+svg .sb { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 2; }
+svg .px { fill: var(--t-global-soft); stroke: var(--t-global); stroke-width: 2; }
+svg .inner { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+svg .img { fill: var(--t-image-soft); stroke: var(--t-image); stroke-width: 1.2; }
+svg .cloud { fill: var(--surface-2); stroke: var(--muted); stroke-width: 1.5; }
+svg .wire { stroke: var(--ink); stroke-width: 2; fill: none; }
+svg .wire-net { stroke: var(--t-global); stroke-width: 5; fill: none; stroke-linecap: round; }
+svg .wire-opt { stroke: var(--t-inst); stroke-width: 2; stroke-dasharray: 6 5; fill: none; }
+svg .wire-bad { stroke: var(--danger); stroke-width: 2; stroke-dasharray: 4 5; fill: none; }
+svg .ah { fill: var(--ink); }
+svg .bad-x { fill: var(--danger-soft); stroke: var(--danger); stroke-width: 2; }
+
+/* image vs container stacks */
+.stackwrap { display: grid; grid-template-columns: 1fr 64px 1fr; gap: 0; align-items: stretch; }
+@media (max-width: 760px) { .stackwrap { grid-template-columns: 1fr; } .stackwrap .arrow { transform: rotate(90deg); height: 56px; } }
+.stack { display: flex; flex-direction: column; gap: 6px; }
+.stack h4 { margin: 0 0 6px; font-size: 15px; }
+.layer { border-radius: 8px; padding: 9px 12px; font-size: 14px; border: 1px solid; }
+.layer small { display: block; color: var(--muted); font-size: 12.5px; }
+.l-image { background: var(--t-image-soft); border-color: var(--t-image); }
+.l-global { background: var(--t-global-soft); border-color: var(--t-global); }
+.l-inst { background: var(--t-inst-soft); border-color: var(--t-inst); }
+.l-bind { background: var(--t-bind-soft); border-color: var(--t-bind); }
+.l-eph { background: var(--t-eph-soft); border-color: var(--t-eph); border-style: dashed; }
+.arrow { display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 28px; }
+
+/* staging pattern */
+.flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.flow .node { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.flow .node.img { background: var(--t-image-soft); border-color: var(--t-image); }
+.flow .node.glob { background: var(--t-global-soft); border-color: var(--t-global); }
+.flow .node.eph { background: var(--t-eph-soft); border-color: var(--t-eph); border-style: dashed; }
+.flow .node.bind { background: var(--t-bind-soft); border-color: var(--t-bind); }
+.flow .node.bad { background: var(--danger-soft); border-color: var(--danger); }
+.flow .to { color: var(--muted); }
+
+/* timeline */
+.timeline { position: relative; margin-left: 10px; padding-left: 26px; border-left: 2px solid var(--line); }
+.step { position: relative; margin-bottom: 18px; }
+.step::before { content: attr(data-n); position: absolute; left: -41px; top: 0; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface); border: 2px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; }
+.step h4 { margin: 0; font-size: 16px; }
+.step p { margin: 2px 0 0; color: var(--muted); font-size: 14.5px; }
+.where { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  padding: 1px 7px; border-radius: 4px; margin-left: 6px; vertical-align: 2px; }
+.w-host { background: var(--surface-2); color: var(--muted); }
+.w-proxy { background: var(--t-global-soft); color: var(--t-global); }
+.w-ctr { background: var(--accent-soft); color: var(--accent); }
+
+/* storage map */
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.legend button { font: inherit; font-size: 13.5px; border-radius: 999px; padding: 5px 12px 5px 10px; cursor: pointer; border: 1.5px solid; background: var(--surface); color: var(--ink); display: inline-flex; gap: 7px; align-items: center; }
+.legend button .dot { width: 10px; height: 10px; border-radius: 50%; }
+.legend button[aria-pressed="false"] { opacity: .45; }
+.paths { display: flex; flex-direction: column; gap: 6px; }
+.path { border-left: 5px solid; border-radius: 8px; background: var(--surface); border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.path summary { list-style: none; cursor: pointer; padding: 9px 12px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+.path summary::-webkit-details-marker { display: none; }
+.path summary .p { font-family: var(--mono); font-size: 13.5px; word-break: break-all; }
+.path summary .src { font-size: 13px; color: var(--muted); word-break: break-word; }
+.path summary .chev { color: var(--muted); transition: transform .15s; }
+.path[open] summary .chev { transform: rotate(90deg); }
+.path .body { padding: 0 14px 12px 14px; font-size: 14.5px; color: var(--ink); }
+.path .body ul { margin: 4px 0 0; padding-left: 20px; }
+@media (max-width: 640px) { .path summary { grid-template-columns: 1fr auto; } .path summary .src { grid-column: 1; } }
+.tag { display: inline-block; font-size: 11.5px; font-weight: 600; border-radius: 4px; padding: 1px 6px; white-space: nowrap; }
+.tier-image { border-left-color: var(--t-image); } .tier-image .tag { background: var(--t-image-soft); color: var(--t-image); }
+.tier-global { border-left-color: var(--t-global); } .tier-global .tag { background: var(--t-global-soft); color: var(--t-global); }
+.tier-inst { border-left-color: var(--t-inst); } .tier-inst .tag { background: var(--t-inst-soft); color: var(--t-inst); }
+.tier-bind { border-left-color: var(--t-bind); } .tier-bind .tag { background: var(--t-bind-soft); color: var(--t-bind); }
+.tier-eph { border-left-color: var(--t-eph); } .tier-eph .tag { background: var(--t-eph-soft); color: var(--t-eph); }
+.hidden { display: none !important; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.tablewrap table { min-width: 680px; }
+
+/* network */
+.topo h4 { margin: 0 0 4px; }
+.topo .chain { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; }
+.topo .hop { border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.topo .hop.green { background: var(--t-global-soft); border-color: var(--t-global); }
+.topo .hop.blue { background: var(--accent-soft); border-color: var(--accent); }
+.topo .hop.red { background: var(--danger-soft); border-color: var(--danger); }
+.topo .down { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.2; }
+ol.rules { margin: 0; padding-left: 0; list-style: none; counter-reset: r; }
+ol.rules li { counter-increment: r; display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+ol.rules li::before { content: counter(r); width: 24px; height: 24px; border-radius: 6px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+ol.rules li.opt::before { background: var(--t-inst-soft); color: var(--t-inst); }
+.allow { color: var(--ok); font-weight: 700; } .deny { color: var(--danger); font-weight: 700; }
+
+/* security layers */
+.layers { display: flex; flex-direction: column; gap: 10px; }
+.sec { display: grid; grid-template-columns: 160px 1fr; gap: 16px; align-items: start; }
+@media (max-width: 640px) { .sec { grid-template-columns: 1fr; gap: 6px; } }
+.meter { display: flex; gap: 3px; margin-top: 6px; }
+.meter i { width: 22px; height: 7px; border-radius: 3px; background: var(--line); }
+.meter i.on { background: var(--ok); }
+.sec .lbl { font-weight: 700; }
+.sec .kind { font-size: 12.5px; color: var(--muted); }
+.sec p { margin: 0; font-size: 14.5px; }
+.sec .caveat { color: var(--muted); font-size: 13.5px; margin-top: 4px; }
+
+.note { border-left: 4px solid var(--t-inst); background: var(--t-inst-soft); padding: 10px 14px; border-radius: 0 8px 8px 0; font-size: 14.5px; margin-top: 14px; }
+.warn { border-left-color: var(--danger); background: var(--danger-soft); }
+
+.gotchas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.gotchas .card h4 { margin: 0 0 6px; font-size: 15.5px; }
+.gotchas .card p { margin: 0; font-size: 14.5px; color: var(--muted); }
+.gotchas .card p code { color: var(--ink); }
+.sev { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; margin-right: 6px; }
+.sev.bug { background: var(--danger-soft); color: var(--danger); }
+.sev.know { background: var(--t-inst-soft); color: var(--t-inst); }
+
+footer { margin-top: 64px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 16px; }
+</style>
+</head>
+<body>
+<nav class="top"><div class="inner">
+  <span class="brand">AI Sandbox</span>
+  <a href="#big-picture">Big picture</a>
+  <a href="#image">Image vs container</a>
+  <a href="#launch">Launch</a>
+  <a href="#storage">Storage</a>
+  <a href="#network">Network</a>
+  <a href="#agents">Agents &amp; skills</a>
+  <a href="#security">Security</a>
+  <a href="#host">Host bridges</a>
+  <a href="#gotchas">Sharp edges</a>
+  <button id="theme" type="button" aria-label="Toggle colour theme">◐ Theme</button>
+</div></nav>
+
+<main>
+<header class="hero">
+  <h1>How the AI Sandbox works</h1>
+  <p>A launcher script on your host starts a throw-away Docker container that runs an AI coding agent (Claude Code, OpenCode/Gemini or Pi) against one project folder. Its only way to the network is a shared Squid proxy with an allowlist. Credentials, history, skills and caches are kept in Docker volumes, so they survive even though the container itself doesn't.</p>
+  <div class="tldr">
+    <div class="card"><b>📦 Image = the toolbox</b><span>Every tool, wrapper and default config is baked in at build time. Rebuild with <code>--build</code> to update.</span></div>
+    <div class="card"><b>🧪 Container = disposable</b><span>Created on launch, deleted on exit (<code>compose down</code>). Anything not on a mount disappears.</span></div>
+    <div class="card"><b>💾 Volumes = memory</b><span>Logins, chat history, skills, plugins, venvs and caches live in named volumes and come back next time.</span></div>
+    <div class="card"><b>🔒 Proxy = the only door out</b><span>The container sits on an <em>internal</em> network. Its only reachable peer is Squid, which forwards allowlisted domains.</span></div>
+  </div>
+</header>
+
+<!-- ============================================================ -->
+<section id="big-picture">
+  <h2>The big picture</h2>
+  <p class="lede">These are the moving parts on your machine during a normal (restricted) session, and the paths between them.</p>
+  <div class="figure">
+  <svg viewBox="0 0 1100 600" role="img" aria-label="Topology: host launcher, project folder, volumes and LM Studio on the left; the sandbox container in the middle; the squid proxy on the right, connected to the internet; the sandbox has no direct route out.">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" class="ah"/></marker>
+      <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:var(--t-inst)"/></marker>
+    </defs>
+    <!-- host frame -->
+    <rect class="host" x="10" y="30" width="870" height="560" rx="14"/>
+    <text class="t-cap" x="28" y="58">YOUR HOST MACHINE</text>
+
+    <!-- internet -->
+    <rect class="cloud" x="920" y="210" width="165" height="120" rx="58"/>
+    <text class="t-title" x="1002" y="262" text-anchor="middle">Internet</text>
+    <text class="t-sub" x="1002" y="282" text-anchor="middle">allowlisted domains</text>
+
+    <!-- left column -->
+    <rect class="box" x="30" y="80" width="200" height="86" rx="10"/>
+    <text class="t-title" x="130" y="108" text-anchor="middle">ai-sandbox launcher</text>
+    <text class="t-sub" x="130" y="128" text-anchor="middle">bash script you run</text>
+    <text class="t-sub" x="130" y="146" text-anchor="middle">compose up · attach · down</text>
+
+    <rect class="box" x="30" y="196" width="200" height="76" rx="10" style="stroke:var(--t-bind)"/>
+    <text class="t-title" x="130" y="224" text-anchor="middle">Project folder</text>
+    <text class="t-mono" x="130" y="244" text-anchor="middle">/path/to/project</text>
+    <text class="t-sub" x="130" y="262" text-anchor="middle">bind-mounted read-write</text>
+
+    <rect class="box" x="30" y="302" width="200" height="130" rx="10" style="stroke:var(--t-global)"/>
+    <text class="t-title" x="130" y="330" text-anchor="middle">Docker volumes</text>
+    <text class="t-sub" x="130" y="352" text-anchor="middle">logins · chat history</text>
+    <text class="t-sub" x="130" y="371" text-anchor="middle">skills · plugins · memory</text>
+    <text class="t-sub" x="130" y="390" text-anchor="middle">npm globals · Python venv</text>
+    <text class="t-sub" x="130" y="409" text-anchor="middle">Go caches</text>
+
+    <rect class="box" x="30" y="500" width="200" height="70" rx="10" style="stroke:var(--t-inst)"/>
+    <text class="t-title" x="130" y="528" text-anchor="middle">LM Studio :1234</text>
+    <text class="t-sub" x="130" y="548" text-anchor="middle">optional local model</text>
+
+    <!-- sandbox container -->
+    <rect class="sb" x="290" y="80" width="330" height="420" rx="12"/>
+    <text class="t-cap" x="306" y="104">SANDBOX CONTAINER</text>
+    <text class="t-sub" x="306" y="122">name: ai-sandbox[-word] · runs as your UID:GID</text>
+
+    <rect class="inner" x="310" y="138" width="290" height="66" rx="8" style="stroke:var(--accent)"/>
+    <text class="t-title" x="455" y="165" text-anchor="middle">AI agent (PID 1 via entrypoint)</text>
+    <text class="t-mono" x="455" y="187" text-anchor="middle">claude | opencode | pi</text>
+
+    <rect class="inner" x="310" y="216" width="290" height="56" rx="8"/>
+    <text class="t-title" x="455" y="240" text-anchor="middle">git / gh wrappers</text>
+    <text class="t-sub" x="455" y="259" text-anchor="middle">block push, remote edits, gh api, …</text>
+
+    <rect class="inner" x="310" y="284" width="290" height="122" rx="8"/>
+    <text class="t-title" x="455" y="307" text-anchor="middle">/home/devuser</text>
+    <text class="t-sub" x="326" y="330">&lt;project&gt;/  ← your folder (bind)</text>
+    <text class="t-sub" x="326" y="350">~/.claude ~/.pi ~/.config/gh  ← volumes</text>
+    <text class="t-sub" x="326" y="370">~/.npm-global ~/.venv_sandbox  ← volumes</text>
+    <text class="t-sub" x="326" y="390">everything else  ← deleted on exit</text>
+
+    <rect class="img" x="310" y="418" width="290" height="66" rx="8"/>
+    <text class="t-title" x="455" y="444" text-anchor="middle">Filesystem from the image</text>
+    <text class="t-sub" x="455" y="464" text-anchor="middle">node:22 + agents + Go + tofu + wrappers</text>
+
+    <!-- proxy -->
+    <rect class="px" x="700" y="190" width="160" height="160" rx="12"/>
+    <text class="t-cap" x="716" y="214">PROXY CONTAINER</text>
+    <text class="t-title" x="780" y="248" text-anchor="middle">squid :3128</text>
+    <text class="t-mono" x="780" y="272" text-anchor="middle">allowlist.txt</text>
+    <text class="t-mono" x="780" y="292" text-anchor="middle">access.log</text>
+    <text class="t-sub" x="780" y="330" text-anchor="middle">one, shared by all</text>
+
+    <!-- wires -->
+    <line class="wire" x1="230" y1="123" x2="288" y2="123" marker-end="url(#arr)"/>
+    <line class="wire" x1="230" y1="234" x2="288" y2="234" marker-end="url(#arr)" style="stroke:var(--t-bind)"/>
+    <line class="wire" x1="230" y1="367" x2="288" y2="367" marker-end="url(#arr)" style="stroke:var(--t-global)"/>
+
+    <line class="wire-net" x1="622" y1="270" x2="698" y2="270"/>
+    <text class="t-sub" x="660" y="257" text-anchor="middle" style="font-weight:700;fill:var(--t-global)">proxy-net</text>
+    <text class="t-sub" x="660" y="292" text-anchor="middle">internal</text>
+
+    <line class="wire-net" x1="862" y1="270" x2="918" y2="270"/>
+    <text class="t-sub" x="890" y="257" text-anchor="middle" style="font-weight:700;fill:var(--t-global)">egress</text>
+
+    <!-- blocked path -->
+    <path class="wire-bad" d="M622 470 C 760 470, 930 430, 1000 334"/>
+    <circle class="bad-x" cx="876" cy="423" r="12"/>
+    <text x="876" y="428" text-anchor="middle" style="fill:var(--danger);font-weight:700;font-size:14px">✕</text>
+    <text class="t-sub" x="900" y="456" text-anchor="middle" style="fill:var(--danger)">no direct route</text>
+
+    <!-- local model -->
+    <path class="wire-opt" d="M740 352 L740 535 L232 535" marker-end="url(#arrO)"/>
+    <text class="t-sub" x="490" y="560" text-anchor="middle" style="fill:var(--t-inst)">only host.docker.internal:1234, only with --local-model</text>
+  </svg>
+  </div>
+  <p class="caption">Solid green = Docker networks. The sandbox is attached to <em>only</em> <code>ai-sandbox-proxy-net</code>, which has <code>internal: true</code>, so Docker sets up no NAT for it. The proxy is the only container on both networks.</p>
+</section>
+
+<!-- ============================================================ -->
+<section id="image">
+  <h2>Image vs container</h2>
+  <p class="lede">The <strong>image</strong> is a read-only template built from <code>Dockerfile</code>. A <strong>container</strong> is one running instance of it. Docker gives the container a thin writable layer on top of the image and plugs in mounts at fixed paths. When the session ends, the launcher runs <code>docker compose down</code>: the container and its writable layer are deleted, and volumes and the image stay.</p>
+
+  <div class="stackwrap">
+    <div class="stack card">
+      <h4>🏗️ Image · built once (<code>--build</code> / <code>ai-sandbox-rebuild</code>)</h4>
+      <div class="layer l-image"><b>Base:</b> <code>node:22-slim</code> + apt tools<small>git, curl, jq, python3, ffmpeg, socat, clipboard utils, pulseaudio-utils</small></div>
+      <div class="layer l-image"><b>Runtimes &amp; CLIs</b> (latest at build time)<small>gh, Bun, Claude Code, OpenCode, Pi, Playwright + Firefox, Go, OpenTofu (SHA-checked)</small></div>
+      <div class="layer l-image"><b>Wrappers</b> replace real binaries<small>/usr/bin/git, /usr/bin/gh → wrappers; real ones moved to /opt/real-bin. python/pip → venv-detecting wrappers</small></div>
+      <div class="layer l-image"><b>Staged configs</b> in <code>/opt</code><small>claude-settings.json, opencode-settings.json, pi-settings.json, notification plugin, pi-localmodel-setup.sh (→ lm-refresh)</small></div>
+      <div class="layer l-image"><b>Mount points</b> pre-created, <code>chmod 777 /home/devuser</code><small>so any host UID can write. ENTRYPOINT /entrypoint.sh, CMD []</small></div>
+    </div>
+    <div class="arrow" aria-hidden="true">➜</div>
+    <div class="stack card">
+      <h4>▶️ Container · created per session</h4>
+      <div class="layer l-eph"><b>Writable layer</b> (ephemeral)<small>apt installs, /tmp, ~/.config/opencode, ~/.cache/bun, anything outside a mount. Deleted on exit.</small></div>
+      <div class="layer l-bind"><b>Bind mounts</b> (host filesystem)<small>/path/to/project → /home/devuser/&lt;basename&gt; (rw) · /tmp/.X11-unix (ro)</small></div>
+      <div class="layer l-global"><b>Shared named volumes</b><small>claude, opencode, pi, gh config + Go caches. The same volumes for every session.</small></div>
+      <div class="layer l-inst"><b>Per-instance named volumes</b><small>&lt;name&gt;-npm-global, &lt;name&gt;-python-venv, &lt;name&gt;-opencode-cache</small></div>
+      <div class="layer l-image"><b>Image layers</b> (read-only underneath)<small>everything from the left column</small></div>
+    </div>
+  </div>
+
+  <h3>The “staged config” pattern</h3>
+  <p>Security-relevant configs are not trusted from the volumes, where an agent could have edited them in an earlier session. The image keeps a pristine copy in <code>/opt</code> and the entrypoint <strong>re-installs it on every start</strong>, overwriting whatever is there:</p>
+  <div class="card">
+    <div class="flow">
+      <span class="node bind">config/settings.json<br><small>(repo)</small></span><span class="to">→ COPY →</span>
+      <span class="node img">/opt/claude-settings.json<br><small>image, 444</small></span><span class="to">→ entrypoint cp →</span>
+      <span class="node glob">~/.claude/settings.json<br><small>in volume, chmod 444</small></span>
+    </div>
+    <div class="flow" style="margin-top:10px">
+      <span class="node bind">config/opencode.json</span><span class="to">→</span>
+      <span class="node img">/opt/opencode-settings.json</span><span class="to">→</span>
+      <span class="node eph">~/.config/opencode/opencode.json<br><small>writable layer, 444</small></span>
+    </div>
+    <div class="flow" style="margin-top:10px">
+      <span class="node bind">config/pi-settings.json</span><span class="to">→</span>
+      <span class="node img">/opt/pi-settings.json</span><span class="to">→</span>
+      <span class="node glob">~/.pi/agent/settings.json<br><small>in volume, 644 (not a security boundary)</small></span>
+    </div>
+  </div>
+  <p class="caption">So to change any of these, edit the file in <code>config/</code> and rebuild. Changes made inside the sandbox are overwritten the next time it starts.</p>
+
+  <h3>Versions are pinned to the image</h3>
+  <div class="grid3">
+    <div class="card"><b>CACHEBUST</b><br><span style="color:var(--muted);font-size:14.5px">With <code>--build</code> the launcher passes a fresh timestamp, so the Claude Code layer is re-run and actually fetches the latest version instead of reusing an old cached layer.</span></div>
+    <div class="card"><b>DISABLE_AUTOUPDATER=1</b><br><span style="color:var(--muted);font-size:14.5px">Claude Code's in-container updater is turned off. Otherwise it would <code>npm i -g</code> into the persistent volume and the version would drift from one sandbox to the next.</span></div>
+    <div class="card"><b>Self-healing purge</b><br><span style="color:var(--muted);font-size:14.5px">The entrypoint deletes <code>@anthropic-ai</code> from <code>~/.npm-global</code>, because that directory is first on PATH and a stale copy there would shadow the image's <code>claude</code>.</span></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="launch">
+  <h2>What happens when you run <code>ai-sandbox . --claude</code></h2>
+  <p class="lede">Every step of the launcher and entrypoint in order. The tag on each step says where it runs.</p>
+  <div class="card">
+  <div class="timeline">
+    <div class="step" data-n="1"><h4>Resolve identity &amp; options <span class="where w-host">host</span></h4><p>Takes your UID/GID (or <code>SUDO_UID</code>), loads <code>.env</code> as defaults, then parses flags, which override it: tool, <code>-n NAME</code>, <code>--build</code>, <code>--local-model</code>, <code>--unrestricted</code>.</p></div>
+    <div class="step" data-n="2"><h4>Inspect Docker state in parallel <span class="where w-host">host</span></h4><p>Three background checks: is the proxy running, is a container with this name running, and which of the 6 shared volumes are missing.</p></div>
+    <div class="step" data-n="3"><h4>Pick a free name <span class="where w-host">host</span></h4><p>If <code>ai-sandbox</code> is already running, it picks <code>ai-sandbox-&lt;word&gt;</code> (e.g. <code>-onyx</code>). The name is also the compose project, so each session gets its own container, image tag and per-instance volumes.</p></div>
+    <div class="step" data-n="4"><h4>Create missing shared volumes <span class="where w-host">host</span></h4><p>Runs <code>docker volume create</code>, then a one-off <code>alpine</code> container <code>chown</code>s them to your UID so the non-root agent can write to them.</p></div>
+    <div class="step" data-n="5"><h4>Ensure the shared proxy <span class="where w-proxy">proxy</span></h4><p>Starts it under its own fixed compose project, <code>ai-sandbox-proxy</code>, if it isn't running. If <code>--local-model</code> is set and the running proxy lacks that rule, it is recreated (a short blip for other sessions). It is skipped entirely with <code>--unrestricted</code>.</p></div>
+    <div class="step" data-n="6"><h4>Local-model pre-flight (optional) <span class="where w-proxy">proxy</span></h4><p>From inside the proxy it probes <code>host.docker.internal:1234</code>. If that fails, it prints the exact <code>iptables</code> rule, scoped to the egress subnet, and waits for you to retry or skip.</p></div>
+    <div class="step" data-n="7"><h4>Build if needed, then <code>compose up -d --wait</code> <span class="where w-host">host</span></h4><p>If the image tag <code>&lt;name&gt;-sandbox</code> doesn't exist it builds, mostly from the layer cache. <code>--build</code> forces a rebuild with a fresh CACHEBUST. Adds <code>-f docker-compose.unrestricted.yml</code> when <code>--unrestricted</code> is set.</p></div>
+    <div class="step" data-n="8"><h4>Entrypoint prepares the home <span class="where w-ctr">container</span></h4><p><code>cd</code> into the project → re-install staged configs → set the git identity and <code>safe.directory</code> → purge any stale Claude Code → point Bun's cache at writable dirs → create <code>~/.venv_sandbox</code> on first run.</p></div>
+    <div class="step" data-n="9"><h4><code>exec</code> the agent <span class="where w-ctr">container</span></h4><p><code>claude</code> (plus <code>--dangerously-skip-permissions</code> if requested) · <code>opencode .</code> (also used for <code>--gemini</code>) · <code>pi</code> (after writing <code>models.json</code> from LM Studio when <code>--local-model</code> is set). Because of <code>exec</code>, the agent <em>is</em> the container's main process.</p></div>
+    <div class="step" data-n="10"><h4><code>docker attach</code> → you're in <span class="where w-host">host</span></h4><p>Sets the terminal title to <code>AI SANDBOX (CLAUDE) - "name" @ path</code> and attaches your TTY.</p></div>
+    <div class="step" data-n="11" style="margin-bottom:0"><h4>On exit: <code>compose down</code> <span class="where w-host">host</span></h4><p>The container and its writable layer are removed. Volumes, the image and the shared proxy are kept for the next session.</p></div>
+  </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="storage">
+  <h2>Persistent storage: where everything lives</h2>
+  <p class="lede">Every path inside the container falls into one of five tiers. Click a tier to filter, and click a row for details.</p>
+
+  <div class="legend" id="legend">
+    <button type="button" data-tier="image" aria-pressed="true" style="border-color:var(--t-image)"><span class="dot" style="background:var(--t-image)"></span>Image (read-only, until rebuild)</button>
+    <button type="button" data-tier="global" aria-pressed="true" style="border-color:var(--t-global)"><span class="dot" style="background:var(--t-global)"></span>Shared volume (all sessions)</button>
+    <button type="button" data-tier="inst" aria-pressed="true" style="border-color:var(--t-inst)"><span class="dot" style="background:var(--t-inst)"></span>Per-instance volume (per name)</button>
+    <button type="button" data-tier="bind" aria-pressed="true" style="border-color:var(--t-bind)"><span class="dot" style="background:var(--t-bind)"></span>Host bind mount</button>
+    <button type="button" data-tier="eph" aria-pressed="true" style="border-color:var(--t-eph)"><span class="dot" style="background:var(--t-eph)"></span>Ephemeral (gone on exit)</button>
+  </div>
+
+  <div class="paths" id="paths">
+    <details class="path tier-bind"><summary><span class="p">/home/devuser/&lt;project-basename&gt;/</span><span class="src">host <code>/path/to/project</code> (rw)</span><span class="tag">bind</span></summary>
+      <div class="body">Your real project folder. Edits go straight to the host, and git commits made inside land in your host repo. The agent starts here (or in <code>WORKTREE_SUBDIR</code> if set). Project-scoped agent config lives here too and travels with the repo: <code>.claude/settings.local.json</code>, <code>.claude/skills/</code>, <code>CLAUDE.md</code>, <code>AGENTS.md</code>.</div></details>
+
+    <details class="path tier-global"><summary><span class="p">~/.claude/</span><span class="src">volume <code>ai-sandbox-claude-config</code></span><span class="tag">shared</span></summary>
+      <div class="body">All of Claude Code's state, shared by every sandbox session at once:
+        <ul>
+          <li><code>.credentials.json</code>, <code>.claude.json</code>: login and account state</li>
+          <li><code>projects/-home-devuser-&lt;basename&gt;/</code>: session transcripts and <strong>auto-memory</strong>, keyed by the in-container path</li>
+          <li><code>skills/</code>: personal skills (e.g. <code>forgejo-token</code>, <code>orchestrating-implementation</code>) and <code>skills/synced/</code> account-synced skills</li>
+          <li><code>plugins/</code>: marketplaces, installed plugin versions, <code>installed_plugins.json</code></li>
+          <li><code>history.jsonl</code>, <code>file-history/</code>, <code>todos</code>, <code>shell-snapshots</code>, …</li>
+          <li><code>settings.json</code>: <strong>replaced from the image on every start</strong> (read-only, 444)</li>
+        </ul></div></details>
+
+    <details class="path tier-global"><summary><span class="p">~/.local/share/opencode/</span><span class="src">volume <code>ai-sandbox-opencode-config</code></span><span class="tag">shared</span></summary>
+      <div class="body">OpenCode's auth (Gemini/Google login) and session data.</div></details>
+
+    <details class="path tier-global"><summary><span class="p">~/.pi/</span><span class="src">volume <code>ai-sandbox-pi-config</code></span><span class="tag">shared</span></summary>
+      <div class="body">Pi's <code>agent/auth.json</code> and <code>sessions/</code>. <code>agent/settings.json</code> is replaced from the image on each Pi start (writable). <code>agent/models.json</code> is generated when <code>--local-model</code> is set and deleted when it isn't.</div></details>
+
+    <details class="path tier-global"><summary><span class="p">~/.config/gh/</span><span class="src">volume <code>ai-sandbox-gh-config</code></span><span class="tag">shared</span></summary>
+      <div class="body">The GitHub CLI token from <code>gh auth login</code>. Every session and agent sees it.</div></details>
+
+    <details class="path tier-global"><summary><span class="p">~/go/ · ~/.cache/go-build/</span><span class="src">volumes <code>ai-sandbox-go-mod-cache</code>, <code>-go-build-cache</code></span><span class="tag">shared</span></summary>
+      <div class="body">GOPATH (module cache plus <code>go install</code>'d binaries, which are on PATH) and the build cache. They are shared on purpose: both are content-addressed and file-locked, so a module is downloaded and compiled once for every project.</div></details>
+
+    <details class="path tier-inst"><summary><span class="p">~/.npm-global/</span><span class="src">volume <code>&lt;name&gt;-npm-global</code></span><span class="tag">per-instance</span></summary>
+      <div class="body"><code>npm i -g</code> target (<code>NPM_CONFIG_PREFIX</code>), with its <code>bin</code> early on PATH. The entrypoint purges <code>@anthropic-ai</code> here on every start so the image's Claude Code always wins.</div></details>
+
+    <details class="path tier-inst"><summary><span class="p">~/.venv_sandbox/</span><span class="src">volume <code>&lt;name&gt;-python-venv</code></span><span class="tag">per-instance</span></summary>
+      <div class="body">A fallback Python venv created on first start. The <code>python</code>/<code>pip</code> wrappers use it when they can't find a project venv, so <code>pip install</code> never touches the system Python.</div></details>
+
+    <details class="path tier-inst"><summary><span class="p">~/.cache/opencode/</span><span class="src">volume <code>&lt;name&gt;-opencode-cache</code></span><span class="tag">per-instance</span></summary>
+      <div class="body">OpenCode's cache, including plugins it downloads at runtime such as <code>opencode-gemini-auth</code>.</div></details>
+
+    <details class="path tier-bind"><summary><span class="p">/tmp/.X11-unix</span><span class="src">host X11 socket (ro)</span><span class="tag">bind</span></summary>
+      <div class="body">Together with <code>DISPLAY</code>, this lets <code>xclip</code>/<code>xsel</code> reach your host clipboard (run <code>xhost +local:docker</code> once on the host). It is a Unix socket, so it works even though there is no network route.</div></details>
+
+    <details class="path tier-image"><summary><span class="p">/usr/local/bin/{claude, pi, playwright, go, tofu, …}</span><span class="src">image</span><span class="tag">image</span></summary>
+      <div class="body">Agent CLIs and toolchains. <code>/opt/opencode</code>, <code>/opt/bun</code>, <code>/opt/ms-playwright</code> (Firefox) and <code>/usr/local/go</code> also live in the image. The only way to update them is a rebuild.</div></details>
+
+    <details class="path tier-image"><summary><span class="p">/usr/bin/git · /usr/bin/gh · /usr/local/bin/python3 · pip</span><span class="src">image (wrappers)</span><span class="tag">image</span></summary>
+      <div class="body">Wrapper scripts that sit in front of the real binaries in <code>/opt/real-bin/</code> and <code>/opt/system-python/</code>. See <a href="#security">Security</a>.</div></details>
+
+    <details class="path tier-image"><summary><span class="p">/opt/*-settings.json · /opt/pi-localmodel-setup.sh</span><span class="src">image (staging)</span><span class="tag">image</span></summary>
+      <div class="body">The pristine copies the entrypoint re-installs on every start. <code>lm-refresh</code> is a symlink to the local-model script.</div></details>
+
+    <details class="path tier-eph"><summary><span class="p">~/.config/opencode/</span><span class="src">container writable layer</span><span class="tag">ephemeral</span></summary>
+      <div class="body">This is <em>not</em> a volume. <code>opencode.json</code> and <code>plugin/notification.js</code> are written fresh from <code>/opt</code> on every start and thrown away on exit.</div></details>
+
+    <details class="path tier-eph"><summary><span class="p">~/.cache/bun · ~/.bun · /tmp · apt installs · everything else</span><span class="src">container writable layer</span><span class="tag">ephemeral</span></summary>
+      <div class="body">Anything written outside the mounts above disappears on <code>compose down</code>. To make a tool permanent, add it to the <code>Dockerfile</code>; to make data permanent, add a volume in <code>docker-compose.yml</code>.</div></details>
+  </div>
+
+  <h3>Volume scopes at a glance</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Volume</th><th>Scope</th><th>Created by</th><th>Survives</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai-sandbox-{claude,opencode,pi,gh}-config</code></td><td>Shared by every session, at the same time</td><td>Launcher (<code>external: true</code>)</td><td>Exit, rebuild, renaming</td></tr>
+      <tr><td><code>ai-sandbox-go-{mod,build}-cache</code></td><td>Shared by every session</td><td>Launcher (<code>external: true</code>)</td><td>Exit, rebuild, renaming</td></tr>
+      <tr><td><code>&lt;name&gt;-{npm-global,python-venv,opencode-cache}</code></td><td>One set per sandbox <em>name</em></td><td>Compose, on first <code>up</code></td><td>Exit and rebuild. A new name means a new, empty set.</td></tr>
+      <tr><td>Container writable layer</td><td>One session</td><td>Docker</td><td>Nothing; deleted by <code>compose down</code></td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">Per-instance volumes are keyed by the <strong>name</strong>, not by the project. An auto-picked name like <code>ai-sandbox-onyx</code> gets a fresh npm/venv set that is only reused if the same random word comes up again. Use <code>-n myproject</code> to keep a stable per-project package set. Leftover sets can be listed with <code>docker volume ls | grep -- -npm-global</code>.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="network">
+  <h2>Network: fail-closed by topology</h2>
+  <p class="lede">The restriction does not depend on programs honouring <code>HTTP_PROXY</code>. A process that ignores the proxy variables or speaks raw TCP/UDP/DNS has nowhere to go, because the network it is on has no route out.</p>
+  <div class="grid2">
+    <div class="card topo">
+      <h4>Default session</h4><span style="color:var(--muted);font-size:14px">allowlisted, logged</span>
+      <div class="chain">
+        <div class="hop blue">Agent process · <code>HTTPS_PROXY=http://ai-sandbox-proxy:3128</code></div>
+        <div class="down">↓</div>
+        <div class="hop green"><b>ai-sandbox-proxy-net</b> · <code>internal: true</code><br><small>no NAT, no gateway; the only peer is the proxy</small></div>
+        <div class="down">↓</div>
+        <div class="hop green"><b>squid</b> checks the destination against <code>allowlist.txt</code>, writes <code>access.log</code></div>
+        <div class="down">↓ allowed only</div>
+        <div class="hop green"><b>ai-sandbox-egress</b> (normal bridge, proxy only) → Internet</div>
+      </div>
+    </div>
+    <div class="card topo">
+      <h4><code>--unrestricted</code> session</h4><span style="color:var(--danger);font-size:14px">a deliberate escape hatch, per session</span>
+      <div class="chain">
+        <div class="hop blue">Agent process · proxy vars blanked, <code>NO_PROXY=*</code></div>
+        <div class="down">↓</div>
+        <div class="hop red"><b>unrestricted-net</b> · normal bridge with NAT<br><small>the overlay uses <code>networks: !override</code>, so proxy-net is <em>replaced</em>, not added to</small></div>
+        <div class="down">↓ anything, any port, not logged</div>
+        <div class="hop red">Internet and host services directly</div>
+      </div>
+      <p class="caption" style="margin-top:12px">The shared proxy isn't touched and other sessions keep their allowlist. Requires Docker Compose ≥ 2.24.4.</p>
+    </div>
+  </div>
+
+  <h3>Squid rule order (first match wins)</h3>
+  <div class="grid2">
+    <div class="card">
+      <ol class="rules">
+        <li class="opt"><span><span class="allow">allow</span> localnet → <code>host.docker.internal:1234</code><br><small style="color:var(--muted)">inserted only when the proxy runs with <code>ALLOW_HOST_MODEL=true</code></small></span></li>
+        <li><span><span class="deny">deny</span> any port other than 80/443</span></li>
+        <li><span><span class="deny">deny</span> CONNECT to anything but 443</span></li>
+        <li><span><span class="allow">allow</span> localhost</span></li>
+        <li><span><span class="allow">allow</span> localnet → <code>allowed_domains</code></span></li>
+        <li><span><span class="deny">deny</span> all</span></li>
+      </ol>
+    </div>
+    <div class="card">
+      <b>Allowlist (<code>proxy/allowlist.txt</code>)</b>
+      <p style="font-size:14.5px;color:var(--muted);margin:6px 0 10px">Anthropic/Claude · OpenCode, models.dev · Google &amp; googleapis (Gemini) · GitHub, githubusercontent · PyPI · npm · Bun · <code>proxy.golang.org</code>, <code>sum.golang.org</code> · <code>registry.opentofu.org</code> · Sentry</p>
+      <b>Changing it live</b>
+      <p style="font-size:14.5px;color:var(--muted);margin:6px 0 0">The <code>proxy/</code> <em>directory</em> is mounted read-only at <code>/etc/squid/allowlist.d</code>. Mounting the directory rather than the file means editor atomic saves are picked up. Edit the file, then run <code>./ai-sandbox-reload</code>, which sends SIGHUP to Squid. No restart is needed.</p>
+      <p style="font-size:14.5px;color:var(--muted);margin:10px 0 0">Build time is <strong>not</strong> proxied. Go, OpenTofu, Playwright browsers and the like are fetched freely during <code>docker build</code>.</p>
+    </div>
+  </div>
+
+  <h3>Local model path (<code>--local-model</code>)</h3>
+  <div class="card"><div class="flow">
+    <span class="node">pi in sandbox</span><span class="to">→</span>
+    <span class="node glob">squid (rule 1)</span><span class="to">→</span>
+    <span class="node">host.docker.internal:1234</span><span class="to">→</span>
+    <span class="node">LM Studio (bound to 0.0.0.0)</span>
+  </div>
+  <p class="caption">At startup <code>pi-localmodel-setup.sh</code> calls <code>/v1/models</code> through the proxy, writes <code>~/.pi/agent/models.json</code> and makes the first model active. Run <code>!lm-refresh</code> inside pi to rediscover models without restarting. The rule is <strong>additive and sticky</strong>: once one session enables it, the shared proxy keeps it until <code>./ai-sandbox --stop-proxy</code>.</p></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="agents">
+  <h2>Agents, configs, skills &amp; plugins</h2>
+  <p class="lede">All agents come from the same image. Only <code>AI_TOOL</code> differs, and the entrypoint uses it to pick which binary to <code>exec</code>.</p>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Agent</th><th>Flag</th><th>Binary</th><th>Managed config (from image)</th><th>Persisted state</th></tr></thead>
+    <tbody>
+      <tr><td><b>Claude Code</b></td><td><code>--claude</code></td><td><code>/usr/local/bin/claude</code></td><td><code>~/.claude/settings.json</code>: deny rules for push / remote / gh api …, read-only</td><td><code>ai-sandbox-claude-config</code></td></tr>
+      <tr><td><b>OpenCode</b></td><td>default, <code>--opencode</code></td><td><code>~/.opencode/bin/opencode</code> → wrapper → <code>/opt/opencode</code> with <code>--hostname 0.0.0.0</code></td><td><code>~/.config/opencode/opencode.json</code>: model, theme, bash deny rules, plugins; plus the notification plugin</td><td><code>ai-sandbox-opencode-config</code> + <code>&lt;name&gt;-opencode-cache</code></td></tr>
+      <tr><td><b>Gemini</b></td><td><code>--gemini</code></td><td colspan="3">Same as OpenCode. It is OpenCode with <code>opencode-gemini-auth</code> and the <code>google/gemini-3-pro</code> model.</td></tr>
+      <tr><td><b>Pi</b></td><td><code>--pi</code></td><td><code>/usr/local/bin/pi</code></td><td><code>~/.pi/agent/settings.json</code> (theme); <code>models.json</code> when <code>--local-model</code> is set</td><td><code>ai-sandbox-pi-config</code></td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>How Claude Code skills &amp; plugins are handled</h3>
+  <p>The sandbox has no special code for skills. They live in the Claude volume and in your project, and they persist because those are mounted. There are four sources:</p>
+  <div class="grid2">
+    <div class="card" style="border-left:5px solid var(--t-global)">
+      <b>① Personal skills</b> <span class="tag" style="background:var(--t-global-soft);color:var(--t-global)">shared volume</span>
+      <p style="font-size:14.5px;margin:6px 0 0"><code>~/.claude/skills/&lt;name&gt;/SKILL.md</code> (+ scripts). Available in every project and every session, e.g. <code>forgejo-token</code>, <code>orchestrating-implementation</code>.</p>
+    </div>
+    <div class="card" style="border-left:5px solid var(--t-global)">
+      <b>② Account-synced skills</b> <span class="tag" style="background:var(--t-global-soft);color:var(--t-global)">shared volume</span>
+      <p style="font-size:14.5px;margin:6px 0 0">Claude Code writes skills synced from your Claude account to <code>~/.claude/skills/synced/&lt;bucket&gt;/</code>. They are fetched over the allowlisted <code>.claude.ai</code> / <code>.anthropic.com</code> domains.</p>
+    </div>
+    <div class="card" style="border-left:5px solid var(--t-global)">
+      <b>③ Plugins from marketplaces</b> <span class="tag" style="background:var(--t-global-soft);color:var(--t-global)">shared volume</span>
+      <p style="font-size:14.5px;margin:6px 0 0">Marketplaces are GitHub repos cloned into <code>~/.claude/plugins/marketplaces/</code> (<code>anthropics/claude-plugins-official</code>, <code>mattpocock/skills</code>). Installed versions go to <code>plugins/cache/&lt;mkt&gt;/&lt;plugin&gt;/&lt;ver&gt;/</code>, tracked in <code>installed_plugins.json</code> with a user, project or local scope. This works because github.com and githubusercontent are allowlisted.</p>
+    </div>
+    <div class="card" style="border-left:5px solid var(--t-bind)">
+      <b>④ Project-level config</b> <span class="tag" style="background:var(--t-bind-soft);color:var(--t-bind)">in your repo</span>
+      <p style="font-size:14.5px;margin:6px 0 0"><code>&lt;project&gt;/.claude/settings.local.json</code> turns plugins on for this project (this repo enables <code>mattpocock-skills@mattpocock</code>). <code>&lt;project&gt;/.claude/skills/</code> and <code>CLAUDE.md</code> work the same way. They live on the host and travel with the repo.</p>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <b>Putting it together, at startup Claude Code sees:</b>
+    <div class="flow" style="margin-top:10px">
+      <span class="node img">~/.claude/settings.json<br><small>image-managed, deny rules</small></span><span class="to">+</span>
+      <span class="node bind">&lt;project&gt;/.claude/settings*.json<br><small>enabledPlugins, project perms</small></span><span class="to">+</span>
+      <span class="node glob">skills/ · plugins/cache/<br><small>skill &amp; plugin files</small></span><span class="to">=</span>
+      <span class="node">skills listed in the session</span>
+    </div>
+  </div>
+  <div class="note warn"><b>Watch out:</b> because <code>~/.claude/settings.json</code> is overwritten and made read-only on every start, any <em>user-scope</em> setting you change inside the sandbox (via <code>/config</code>, by enabling a plugin at user scope, or by adding allow rules) won't persist. Put persistent preferences in <code>config/settings.json</code> and rebuild, or in the project's <code>.claude/settings.local.json</code>.</div>
+
+  <h3>Memory &amp; history are keyed by in-container path</h3>
+  <p>Claude Code keys sessions and auto-memory by working directory, and inside the sandbox that is always <code>/home/devuser/&lt;basename&gt;</code>. So <code>~/.claude/projects/-home-devuser-ai-sandbox/memory/</code> belongs to “any project folder named <code>ai-sandbox</code>”. Two host projects with the same folder name share memory and <code>--resume</code> history.</p>
+
+  <h3>OpenCode &amp; Pi extensions</h3>
+  <div class="grid2">
+    <div class="card"><b>OpenCode</b><p style="font-size:14.5px;margin:6px 0 0;color:var(--muted)">Plugins are declared in <code>config/opencode.json</code> (<code>"plugin": ["opencode-gemini-auth@latest"]</code>) and downloaded through the proxy (npm/Bun) into <code>~/.cache/opencode</code>. The local <code>notification.js</code> plugin is copied from the image into <code>~/.config/opencode/plugin/</code>. Because that directory is ephemeral, any plugin you add by hand inside the sandbox is gone next session.</p></div>
+    <div class="card"><b>Pi</b><p style="font-size:14.5px;margin:6px 0 0;color:var(--muted)">Everything Pi keeps under <code>~/.pi</code> persists (auth, sessions, anything else it stores there), except <code>settings.json</code>, which is reset from the image on each start. The local-model script then writes the active <code>model</code> into it.</p></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="security">
+  <h2>Security layers</h2>
+  <p class="lede">Defence in depth, strongest layer first. Only the network layer is a hard boundary. The others are guardrails that stop an agent from doing the wrong thing by accident.</p>
+  <div class="layers">
+    <div class="card sec"><div><div class="lbl">1 · Network topology</div><div class="kind">hard boundary</div><div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div></div>
+      <div><p>The container has no route out except Squid, which allows only listed domains on 80/443 and logs every request.</p><p class="caveat">Caveat: broad entries such as <code>.github.com</code>, <code>.google.com</code> and <code>.googleapis.com</code> are still reachable, so data can still leave to those services.</p></div></div>
+    <div class="card sec"><div><div class="lbl">2 · Filesystem scope</div><div class="kind">hard boundary</div><div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div></div>
+      <div><p>Only the project folder, the X11 socket and the named volumes are visible. The agent runs as your non-root UID and there is no Docker socket.</p><p class="caveat">Caveat: the project is mounted read-write, and the volumes holding all your agent and GitHub credentials are mounted into every session.</p></div></div>
+    <div class="card sec"><div><div class="lbl">3 · Agent permission rules</div><div class="kind">guardrail</div><div class="meter"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div></div>
+      <div><p>Claude's <code>permissions.deny</code> and OpenCode's <code>permission.bash</code> refuse <code>git push</code>, remote edits, <code>gh api/repo/secret/workflow…</code>. The config is re-installed read-only on every start.</p><p class="caveat">Caveat: these match command strings, and <code>--dangerously-skip-permissions</code> removes Claude's prompts. Pi has no such rules.</p></div></div>
+    <div class="card sec"><div><div class="lbl">4 · Command wrappers</div><div class="kind">guardrail</div><div class="meter"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div>
+      <div><p><code>git</code> blocks <code>push</code>, <code>remote add/set-url/remove</code> and <code>credential</code>. <code>gh</code> is allow-listed: <code>issue *</code>, <code>pr create/view/list/status/diff/checks</code>, <code>auth login/status</code>. The intended flow is that the agent opens a PR and you push from the host.</p><p class="caveat">Caveat: the real binaries are still executable at <code>/opt/real-bin/</code>, so this stops accidents, not a determined process.</p></div></div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="host">
+  <h2>Host bridges &amp; helper scripts</h2>
+  <div class="grid2">
+    <div class="card"><b>🔑 OAuth callback (<code>ai-sandbox-auth</code>)</b><p style="font-size:14.5px;color:var(--muted);margin:6px 0 0">Browser logins redirect to <code>localhost:8085</code> on the <em>host</em>, where nothing is listening. You copy that URL, and the script runs <code>docker exec … curl</code> against <code>127.0.0.1</code> <em>inside</em> each running sandbox until one answers 200. This replaces port publishing, which the internal network couldn't route anyway.</p></div>
+    <div class="card"><b>📋 Clipboard</b><p style="font-size:14.5px;color:var(--muted);margin:6px 0 0">Through the X11 socket bind mount plus <code>DISPLAY</code>. Run <code>xhost +local:docker</code> on Linux; WSLg works automatically.</p></div>
+    <div class="card"><b>🔊 Audio notifications</b><p style="font-size:14.5px;color:var(--muted);margin:6px 0 0">The OpenCode plugin runs edge-tts → ffmpeg → <code>paplay</code> to <code>PULSE_SERVER=tcp:host.docker.internal:4713</code>. That is raw TCP to the host, so it only works in <code>--unrestricted</code> sessions; in the default topology it fails silently. The terminal bell and title still work.</p></div>
+    <div class="card"><b>🖥️ Terminal title</b><p style="font-size:14.5px;color:var(--muted);margin:6px 0 0">The launcher sets <code>AI SANDBOX (TOOL) - "name" @ path</code>. The OpenCode plugin switches it to <code>✓ done</code> or <code>⚠ input needed</code>.</p></div>
+  </div>
+  <h3>Command reference</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Command</th><th>Runs on</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td><code>ai-sandbox PATH [flags]</code></td><td>host</td><td>The full lifecycle above. Flags: <code>--claude|--opencode|--gemini|--pi</code>, <code>-n NAME</code>, <code>--build</code>, <code>--local-model</code>, <code>--unrestricted</code>, <code>--dangerously-skip-permissions</code></td></tr>
+      <tr><td><code>ai-sandbox --stop-proxy</code></td><td>host</td><td>Tears down the shared proxy, which also resets the local-model rule to closed.</td></tr>
+      <tr><td><code>ai-sandbox-rebuild</code></td><td>host</td><td>Builds the <code>ai-sandbox-sandbox</code> image with a fresh CACHEBUST, then prunes old build cache and dangling images.</td></tr>
+      <tr><td><code>ai-sandbox-reload</code></td><td>host</td><td>Sends SIGHUP to the proxy so Squid re-reads <code>allowlist.txt</code>.</td></tr>
+      <tr><td><code>ai-sandbox-auth "URL"</code></td><td>host</td><td>Forwards an OAuth <code>localhost:8085</code> redirect into the sandbox.</td></tr>
+      <tr><td><code>lm-refresh</code></td><td>inside</td><td>Re-discovers LM Studio models and rewrites <code>models.json</code> (Pi hot-reloads it).</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- ============================================================ -->
+<section id="gotchas">
+  <h2>Sharp edges worth knowing</h2>
+  <p class="lede">Things that follow from the design and could surprise you. The ones marked “bug” look unintended.</p>
+  <div class="gotchas">
+    <div class="card"><h4><span class="sev bug">bug</span>Project venvs are never detected</h4><p>The <code>python</code>/<code>pip</code> wrappers hard-code <code>project_root=/home/devuser/project</code>, but the project is mounted at <code>/home/devuser/&lt;basename&gt;</code>. Unless your folder is literally named <code>project</code>, a repo's <code>.venv</code> is skipped and everything goes to <code>~/.venv_sandbox</code>.</p></div>
+    <div class="card"><h4><span class="sev know">design</span>User-scope Claude settings don't stick</h4><p><code>~/.claude/settings.json</code> is overwritten and set to 444 on every start. Put persistent settings in <code>config/settings.json</code> (and rebuild) or in project-level settings.</p></div>
+    <div class="card"><h4><span class="sev know">design</span>Same folder name means shared memory</h4><p>Claude's sessions and memory are keyed by <code>/home/devuser/&lt;basename&gt;</code>, so <code>~/a/api</code> and <code>~/b/api</code> look like the same project.</p></div>
+    <div class="card"><h4><span class="sev know">design</span>Random names leave volumes behind</h4><p>Each auto-picked <code>ai-sandbox-&lt;word&gt;</code> creates its own npm, venv and OpenCode cache volumes and image tag. They are not cleaned up. Use <code>-n</code> for stable names.</p></div>
+    <div class="card"><h4><span class="sev know">design</span>The local-model rule is global and sticky</h4><p>The proxy is shared, so <code>--local-model</code> opens <code>host:1234</code> for <em>every</em> running session until <code>--stop-proxy</code>.</p></div>
+    <div class="card"><h4><span class="sev know">design</span>Audio needs <code>--unrestricted</code></h4><p>PulseAudio is raw TCP to the host and can't go through Squid, so OpenCode's spoken notifications are silent in normal sessions.</p></div>
+    <div class="card"><h4><span class="sev know">design</span>Tools are frozen until rebuild</h4><p>Claude Code, OpenCode, Pi, Go, OpenTofu and Playwright are “latest at build time”. Updating any of them means <code>--build</code> or <code>ai-sandbox-rebuild</code>.</p></div>
+    <div class="card"><h4><span class="sev know">design</span>Credentials are shared everywhere</h4><p>One gh token and one set of agent logins are mounted into every session, whatever the project. To isolate a project you'd need different volume names.</p></div>
+  </div>
+</section>
+
+<footer>Generated from the <code>ai-sandbox</code> repository working tree (Dockerfile, docker-compose*.yml, ai-sandbox*, entrypoint.sh, proxy/, wrappers/, config/) and the live <code>~/.claude</code> volume layout, 2026-10-28.</footer>
+</main>
+
+<script>
+(function () {
+  // Theme toggle (auto → dark → light)
+  var root = document.documentElement, btn = document.getElementById('theme');
+  var saved = null;
+  try { saved = localStorage.getItem('aisb-theme'); } catch (e) {}
+  if (saved) root.setAttribute('data-theme', saved);
+  btn.addEventListener('click', function () {
+    var cur = root.getAttribute('data-theme');
+    var isDark = cur ? cur === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = isDark ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('aisb-theme', next); } catch (e) {}
+  });
+
+  // Storage tier filter
+  var buttons = document.querySelectorAll('#legend button');
+  var rows = document.querySelectorAll('#paths .path');
+  function apply() {
+    var on = {};
+    buttons.forEach(function (b) { on[b.dataset.tier] = b.getAttribute('aria-pressed') === 'true'; });
+    rows.forEach(function (r) {
+      var tier = (r.className.match(/tier-(\w+)/) || [])[1];
+      r.classList.toggle('hidden', !on[tier]);
+    });
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var allOn = Array.prototype.every.call(buttons, function (x) { return x.getAttribute('aria-pressed') === 'true'; });
+      // First click while everything is shown isolates that tier; later clicks toggle.
+      if (allOn) buttons.forEach(function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+      else b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+      if (!Array.prototype.some.call(buttons, function (x) { return x.getAttribute('aria-pressed') === 'true'; }))
+        buttons.forEach(function (x) { x.setAttribute('aria-pressed', 'true'); });
+      apply();
+    });
+  });
+})();
+</script>
+</body>
+</html>

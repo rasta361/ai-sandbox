@@ -17,6 +17,11 @@ services:
       - LMSTUDIO_MODEL=${LMSTUDIO_MODEL:-}
       - PROJECT_NAME=${PROJECT_NAME:-project}
       - WORKTREE_SUBDIR=${WORKTREE_SUBDIR:-}
+      # Disable Claude Code's in-container auto-updater. Without this it runs
+      # `npm i -g` on a loop into the persistent npm-global volume, so the version
+      # drifts per-sandbox and changes between restarts. The version is instead
+      # fixed by the image build (see Dockerfile); rebuild with --build to update.
+      - DISABLE_AUTOUPDATER=1
       - NPM_CONFIG_PREFIX=/home/devuser/.npm-global
       - PATH=/home/devuser/.opencode/bin:/home/devuser/.npm-global/bin:/home/devuser/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - HTTP_PROXY=http://ai-sandbox-proxy:3128

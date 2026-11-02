@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     git \
     curl \
     unzip \
+    jq \
     python3 \
     python3-pip \
     python3-venv \
@@ -47,8 +48,16 @@ RUN curl -fsSL https://bun.sh/install | bash \
     && ln -s /opt/bun/bin/bun /usr/local/bin/bun \
     && chmod -R 755 /opt/bun
 
-# Install Claude Code (latest on each build)
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code. This is the SINGLE source of truth for the version: the
+# runtime auto-updater is disabled (DISABLE_AUTOUPDATER=1 in docker-compose.yml)
+# and entrypoint.sh purges any stale copy from the npm-global volume, so whatever
+# is installed here is exactly what every container off this image runs.
+# CACHEBUST forces this layer to re-run on `--build` so it genuinely re-fetches
+# the latest published version instead of silently reusing a months-old cached
+# layer; the ai-sandbox launcher passes a fresh timestamp with --build.
+ARG CACHEBUST=unset
+RUN echo "claude-code cachebust=${CACHEBUST}" >/dev/null \
+    && npm install -g @anthropic-ai/claude-code@latest
 
 # Install OpenCode AI
 RUN curl -fsSL https://opencode.ai/install | bash \
@@ -57,6 +66,24 @@ RUN curl -fsSL https://opencode.ai/install | bash \
 # Install Pi coding agent (latest on each build)
 # --ignore-scripts matches the official pi installer recommendation
 RUN npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+
+# Install Playwright + Firefox (latest on each build) for browser testing.
+# Browsers go to a fixed system path (not ~/.cache, which isn't a volume and would
+# be lost/unwritable across UIDs); PLAYWRIGHT_BROWSERS_PATH isn't touched by the
+# compose file, so it carries through to runtime. The GTK/ATK/XDamage libs are
+# listed explicitly, and `--with-deps` pulls in the rest Firefox needs (fonts,
+# X/GStreamer libs, ...). This all happens at build time, which isn't proxied —
+# a project pinning a different Playwright version needs its matching browser
+# build baked in or its CDN allowlisted (see proxy/allowlist.txt).
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+RUN apt-get update && apt-get install -y \
+    libgtk-3-0 \
+    libatk1.0-0 \
+    libxdamage1 \
+    && npm install -g playwright \
+    && playwright install --with-deps firefox \
+    && chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH" \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install Go (latest stable on each build, matching the "latest on build" pattern
 # used for the tools above). The official tarball goes to /usr/local/go; symlink
